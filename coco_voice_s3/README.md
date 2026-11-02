@@ -17,6 +17,8 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 |---|---|
 | [images/coco_voice_s3_render.png](images/coco_voice_s3_render.png), [_render_back.png](images/coco_voice_s3_render_back.png) | photo-style renders (front, back) |
 | [images/coco_voice_s3_wiring.png](images/coco_voice_s3_wiring.png) | circuit diagram |
+| [images/coco_voice_s3_4mb_wiring.png](images/coco_voice_s3_4mb_wiring.png) | circuit diagram, ESP32-S3 Super Mini + 1.3" OLED ("Hi ESP") |
+| [images/coco_voice_s3_devkit_wiring.png](images/coco_voice_s3_devkit_wiring.png) | circuit diagram, ESP32-S3-DevKitC-1 |
 | [images/coco_voice_s3_size.png](images/coco_voice_s3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
 | [images/coco_voice_s3_case_dimensions.png](images/coco_voice_s3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
 | [images/coco_voice_s3_case.png](images/coco_voice_s3_case.png) | brass case: 3D, front, side, top, measurements, cut list |
@@ -32,7 +34,8 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 |---|---|
 | **Seeed XIAO ESP32S3** (8 MB flash, 8 MB PSRAM, 21 x 17.8 mm) | **yes**, the pin map is made for it, and it's smaller than the C3 |
 | ESP32-S3-DevKitC-1 N8R8 / N16R8 | yes, same GPIOs, but too big for this case |
-| "ESP32-S3 Super Mini" with 4 MB flash | **no**: the wake-word model doesn't fit in 4 MB |
+| ESP32-S3-DevKitC-1 N8R8 / N16R8 wiring | see [images/coco_voice_s3_devkit_wiring.png](images/coco_voice_s3_devkit_wiring.png) |
+| **ESP32-S3 Super Mini** (HW-747, 4 MB flash + 2 MB PSRAM) | **simple build**: everything except "Hey Coco" (wake word "Hi ESP"), 1.3" SH1106 OLED, see [Super Mini build](#super-mini-build-4-mb-hi-esp) |
 | XIAO ESP32S3 **Sense** | yes (the camera board is just not used) |
 
 ## Parts
@@ -102,6 +105,13 @@ coco_voice_s3/firmware/flash.sh /dev/ttyACM0
 If the port doesn't appear: hold the XIAO's **B** (boot) button, plug in USB, release. Switch OFF while the USB cable is in.
 
 To make the wake word more or less sensitive, change `CONFIG_CUSTOM_WAKE_WORD_THRESHOLD` in `firmware/boards/coco/s3/config.json` (lower = triggers more easily, default 20), then build again.
+
+### Super Mini build (4 MB, "Hi ESP")
+
+The ESP32-S3 Super Mini (HW-747) has only 4 MB of flash. The app (2.2 MB) and the smallest model that can hear "Hey Coco" (2.2 MB) don't fit together, so this build uses Espressif's "Hi ESP" wake word (double-tap works too). Everything else is the same. It drives a **1.3" SH1106 OLED** and the board's RGB LED on GPIO48. Same GPIO numbers, wired as in [images/coco_voice_s3_4mb_wiring.png](images/coco_voice_s3_4mb_wiring.png).
+
+- Ready-made: flash [firmware/release/coco_voice_s3_supermini-merged.bin](firmware/release/coco_voice_s3_supermini-merged.bin) at **0x0**.
+- Build it yourself: `SIMPLE=1 coco_voice_s3/firmware/build.sh`, then `coco_voice_s3/firmware/flash.sh /dev/ttyACM0`.
 
 ### First start
 

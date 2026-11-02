@@ -1,6 +1,8 @@
 // Coco Voice S3 - Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM) pin map, "Hey Coco".
 // Matches coco_voice_s3/images/coco_voice_s3_wiring.png. Same modules as Coco Voice (C3);
 // the GPIOs are Kibo's S3 pins, so XIAO pad names are in the comments.
+// The 4 MB build (coco-s3-4mb) is for the ESP32-S3 Super Mini (HW-747): same GPIOs,
+// 1.3" SH1106 OLED, RGB LED on GPIO48. Wiring: coco_voice_s3/images/coco_voice_s3_4mb_wiring.png.
 #ifndef _BOARD_CONFIG_H_
 #define _BOARD_CONFIG_H_
 
@@ -18,8 +20,12 @@
 #define KIBO_I2C_SDA_PIN GPIO_NUM_5      // D4
 #define KIBO_I2C_SCL_PIN GPIO_NUM_6      // D5
 
-// ---- Display: 0.96" SSD1306 ----
+// ---- Display: 0.96" SSD1306; the 4 MB build (coco-s3-4mb) drives a 1.3" SH1106 ----
+#if CONFIG_ESPTOOLPY_FLASHSIZE_4MB
+#define KIBO_OLED_SH1106 1
+#else
 #define KIBO_OLED_SH1106 0
+#endif
 #define DISPLAY_I2C_ADDR 0x3C
 #define DISPLAY_WIDTH    128
 #define DISPLAY_HEIGHT   64
@@ -29,8 +35,13 @@
 // ---- Touch, buttons, LED ----
 #define KIBO_TOUCH_GPIO   GPIO_NUM_1     // D0 - TTP223 I/O (RTC pin: deep-sleep wake)
 #define BOOT_BUTTON_GPIO  GPIO_NUM_0     // XIAO BOOT button
+#if CONFIG_ESPTOOLPY_FLASHSIZE_4MB
+#define BUILTIN_LED_GPIO  GPIO_NUM_48    // S3 Super Mini (HW-747) RGB LED
+#define KIBO_LED_IS_WS2812 1
+#else
 #define BUILTIN_LED_GPIO  GPIO_NUM_21    // XIAO user LED (active LOW)
 #define KIBO_LED_IS_WS2812 0
+#endif
 
 // ---- Amp shutdown ----
 #define KIBO_AMP_SD_GPIO  GPIO_NUM_43    // D6 - MAX98357A SD

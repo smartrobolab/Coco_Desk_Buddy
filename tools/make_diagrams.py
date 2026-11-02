@@ -6,7 +6,7 @@
 Each version gets its own folder, and every file name starts with the version:
   coco_touch/images/     coco_touch_wiring.png, _case.png, _assembly.png, _bending_template.pdf
   coco_voice_c3/images/  coco_voice_c3_wiring.png, _case.png, _assembly.png, _bending_template.pdf
-  coco_voice_s3/images/  coco_voice_s3_wiring.png, _case.png, _assembly.png, _bending_template.pdf
+  coco_voice_s3/images/  coco_voice_s3_wiring.png, _4mb_wiring.png, _devkit_wiring.png, _case.png, _assembly.png, _bending_template.pdf
   shared/images/         coco_overview.png (all versions side by side)
 Needs matplotlib.
 """
@@ -182,11 +182,13 @@ XIAO_RIGHT = ["5V", "GND", "3V3", "G9", "G8", "G7", "G44"]
 XIAO_PAD = {"G9": "D10", "G8": "D9", "G7": "D8", "G44": "D7"}
 
 
-def xiao_board(s, x, y):
-    """Seeed XIAO ESP32S3, top view, USB-C up. Pins at the same heights as c3_board."""
-    pins = [(f"{g} {d}", "L", 40 - i * 5) for i, (g, d) in enumerate(XIAO_LEFT)]
-    pins += [((f"{n} {XIAO_PAD[n]}" if n in XIAO_PAD else n), "R", 40 - i * 5) for i, n in enumerate(XIAO_RIGHT)]
-    p = s.module(x, y + 5, 26, 41, "XIAO", "ESP32S3  8MB+8MB", PCB_BLACK, [(a, b, c - 5) for a, b, c in pins])
+def xiao_board(s, x, y, name="XIAO", sub="ESP32S3  8MB+8MB", pads=True):
+    """Seeed XIAO ESP32S3, top view, USB-C up. Pins at the same heights as c3_board.
+    pads=False: any 4 MB ESP32-S3 board with the same GPIOs, labelled by GPIO only."""
+    pins = [((f"{g} {d}" if pads else g), "L", 40 - i * 5) for i, (g, d) in enumerate(XIAO_LEFT)]
+    pins += [((f"{n} {XIAO_PAD[n]}" if pads and n in XIAO_PAD else n), "R", 40 - i * 5)
+             for i, n in enumerate(XIAO_RIGHT)]
+    p = s.module(x, y + 5, 26, 41, name, sub, PCB_BLACK, [(a, b, c - 5) for a, b, c in pins])
     s.ax.add_patch(Rectangle((x + 9, y + 44), 8, 4, fc="#bbb", ec="#555", lw=1, zorder=4))
     s.ax.text(x + 13, y + 49.5, "USB-C (code)", ha="center", fontsize=6.5, color=INK)
     # short names: "G2 D1" -> also reachable as "G2"
@@ -195,9 +197,44 @@ def xiao_board(s, x, y):
     return p
 
 
-def power_chain(s, p, x0, sense="G1"):
+S3MINI_LEFT = ["G43 TX", "G44 RX", "G1", "G2", "G3", "G4", "G5", "G6", "G7"]
+S3MINI_RIGHT = ["5V", "GND", "3V3", "G13", "G12", "G11", "G10", "G9", "G8"]
+
+
+def s3_supermini_board(s, x, y):
+    """ESP32-S3 Super Mini (18 header pins, 4 MB flash + 2 MB PSRAM), top view, USB-C up."""
+    pins = [(n, "L", 42 - i * 5) for i, n in enumerate(S3MINI_LEFT)]
+    pins += [(n, "R", 42 - i * 5) for i, n in enumerate(S3MINI_RIGHT)]
+    p = s.module(x, y, 26, 46, "ESP32-S3", "Super Mini  4MB+2MB", PCB_BLACK, pins)
+    s.ax.add_patch(Rectangle((x + 9, y + 44), 8, 4, fc="#bbb", ec="#555", lw=1, zorder=4))
+    s.ax.text(x + 13, y + 49.5, "USB-C (code)", ha="center", fontsize=6.5, color=INK)
+    for k in list(p):
+        p[k.split(" ")[0]] = p[k]
+    return p
+
+
+DEVKIT_LEFT = ["3V3", "3V3", "RST", "G4", "G5", "G6", "G7", "G15", "G16", "G17", "G18", "G8", "G3", "G46", "G9",
+               "G10", "G11", "G12", "G13", "G14", "5V", "GND"]
+DEVKIT_RIGHT = ["GND", "G43", "G44", "G1", "G2", "G42", "G41", "G40", "G39", "G38", "G37", "G36", "G35", "G0", "G45",
+                "G48", "G47", "G21", "G20", "G19", "GND", "GND"]
+
+
+def devkit_board(s, x, y):
+    """ESP32-S3-DevKitC-1 (44 pins), top view, USB ports down. Header pins in board order."""
+    pins = [(n, "L", 72.5 - i * 3.3) for i, n in enumerate(DEVKIT_LEFT)]
+    pins += [(n, "R", 72.5 - i * 3.3) for i, n in enumerate(DEVKIT_RIGHT)]
+    p = s.module(x, y, 26, 76, "ESP32-S3", "DevKitC-1  N8R8", PCB_BLACK, pins)
+    for ux in (x + 4, x + 15):
+        s.ax.add_patch(Rectangle((ux, y - 2.5), 7, 2.5, fc="#bbb", ec="#555", lw=1, zorder=4))
+    s.ax.text(x + 7.5, y - 4.5, "UART", ha="center", fontsize=6, color=INK)
+    s.ax.text(x + 18.5, y - 4.5, "USB", ha="center", fontsize=6, color=INK)
+    return p
+
+
+def power_chain(s, p, x0, sense="G1", v3_flag=False):
     """Battery, TP4056, slide switch, 3.3 V LDO and battery divider on the right of the board.
-    sense: board pin for the battery divider, wired directly; None = net label BAT_SENSE."""
+    sense: board pin for the battery divider, wired directly; None = net label BAT_SENSE.
+    v3_flag: end the LDO output in a 3V3 net label instead of wiring it to the board's 3V3 pin."""
     ax = s.ax
     # TP4056 (pins on top edge)
     tp = s.module(x0 + 22, 30, 26, 18, "TP4056", "1A charger + protection", PCB_BLUE,
@@ -236,14 +273,19 @@ def power_chain(s, p, x0, sense="G1"):
                    [("IN", "R", 2.5), ("OUT", "L", 2.5), ("G", "B", 5)])
     ax.texts[-4].set_fontsize(6.2)
     ax.text(lx + 5, sy + 5.6, "ME6211 / RT9080", ha="center", fontsize=6, color=INK)
-    ax.text(lx + 5, sy + 8.2, "+ 1 µF on IN and OUT", ha="center", fontsize=6, color="#666")
+    if not v3_flag:  # the DevKit's G2 label sits here; that sheet's pin map says it instead
+        ax.text(lx + 5, sy + 8.2, "+ 1 µF on IN and OUT", ha="center", fontsize=6, color="#666")
     s.wire([(sx - 4, sy), ldo["IN"]], W_RED, dots=[(x0 + 1, sy)])
     ax.text(x0 + 1.8, sy - 2.2, "BAT_SW", fontsize=6.8, color=W_RED, weight="bold", ha="left")
-    vx = p["3V3"][0] + 3
-    s.wire([ldo["OUT"], (vx, sy), (vx, p["3V3"][1]), p["3V3"]], W_ORANGE)
-    ax.text(vx + 0.6, (sy + p["3V3"][1]) / 2, "3V3", fontsize=6.5, color=W_ORANGE, weight="bold", va="center")
+    if v3_flag:
+        s.wire([ldo["OUT"], (lx - 1.5, sy), (lx - 1.5, sy - 6)], W_ORANGE)
+        s.flag(lx - 1.5, sy - 6, "3V3", W_ORANGE)
+    else:
+        vx = p["3V3"][0] + 3
+        s.wire([ldo["OUT"], (vx, sy), (vx, p["3V3"][1]), p["3V3"]], W_ORANGE)
+        ax.text(vx + 0.6, (sy + p["3V3"][1]) / 2, "3V3", fontsize=6.5, color=W_ORANGE, weight="bold", va="center")
+        ax.text(p["5V"][0] + 0.6, p["5V"][1] + 1.5, "nc", fontsize=5.8, color="#777")
     s.gnd(ldo["G"][0], ldo["G"][1])
-    ax.text(p["5V"][0] + 0.6, p["5V"][1] + 1.5, "nc", fontsize=5.8, color="#777")
 
     # divider: BAT_SW -> 1M -> sense pin -> 330k -> GND, 100nF across 330k
     dx = x0 + 1
@@ -373,12 +415,25 @@ def voice_wiring():
     s.save("coco_voice_c3_wiring.png")
 
 
-def voice_s3_wiring():
-    s = Sheet("COCO VOICE S3  -  circuit diagram  (\"Hey Coco\")",
-              "Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  +  INMP441  +  MAX98357A  +  20 mm speaker  +  OLED  +  TTP223",
-              h=124)
+def voice_s3_wiring(four_mb=False, devkit=False):
+    """four_mb: the simple build (coco-s3-4mb) for 4 MB ESP32-S3 boards with a 1.3" SH1106 OLED, "Hi ESP".
+    devkit: the full-size ESP32-S3-DevKitC-1 (N8R8 / N16R8), same firmware as the XIAO."""
+    if devkit:
+        s = Sheet("COCO VOICE S3 DevKitC  -  circuit diagram  (\"Hey Coco\")",
+                  "ESP32-S3-DevKitC-1 N8R8 / N16R8 (8+ MB flash, 8 MB PSRAM)  +  INMP441  +  MAX98357A  +  20 mm speaker"
+                  "  +  OLED  +  TTP223", h=124)
+        p = devkit_board(s, 58, 16)
+    elif four_mb:
+        s = Sheet("COCO VOICE S3 4MB  -  circuit diagram  (\"Hi ESP\")",
+                  "ESP32-S3 Super Mini (4 MB flash + 2 MB PSRAM)  +  INMP441  +  MAX98357A  +  20 mm speaker"
+                  "  +  1.3\" OLED  +  TTP223", h=124)
+        p = s3_supermini_board(s, 58, 26)
+    else:
+        s = Sheet("COCO VOICE S3  -  circuit diagram  (\"Hey Coco\")",
+                  "Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  +  INMP441  +  MAX98357A  +  20 mm speaker  +  OLED"
+                  "  +  TTP223", h=124)
+        p = xiao_board(s, 58, 26)
     ax = s.ax
-    p = xiao_board(s, 58, 26)
     # every signal by net label: name (pin) at the board, same name at the module
     nets = {"G1": ("TOUCH", W_GREEN), "G2": ("BAT_SENSE", W_PURPLE), "G4": ("AMP_DIN", W_PINK),
             "G5": ("SDA", W_BLUE), "G6": ("SCL", W_YELLOW), "G43": ("AMP_SD", W_GREY),
@@ -386,10 +441,14 @@ def voice_s3_wiring():
     for pin, (net, col) in nets.items():
         x, y = p[pin]
         s.flag(x, y, net, col, side="L" if x < 70 else "R")
+    if devkit:
+        s.flag(*p["3V3"], "3V3", W_ORANGE, side="L")
+        ax.text(p["5V"][0] - 1.5, p["5V"][1], "nc", fontsize=5.8, color="#777", ha="right", va="center")
     s.wire([p["GND"], (p["GND"][0] + 1.3, p["GND"][1])], W_BLACK)
     s.gnd(p["GND"][0] + 1.3, p["GND"][1])
 
-    oled = s.module(14, 94, 30, 14, "0.96\" OLED", "SSD1306 I2C", PCB_BLUE,
+    oled = s.module(14, 94, 30, 14, "1.3\" OLED" if four_mb else "0.96\" OLED",
+                    "SH1106 I2C" if four_mb else "SSD1306 I2C", PCB_BLUE,
                     [("GND", "B", 5), ("VCC", "B", 11.5), ("SCL", "B", 18.5), ("SDA", "B", 25)])
     s.gnd(oled["GND"][0], oled["GND"][1])
     for pin, net, col, dy in [("VCC", "3V3", W_ORANGE, 8), ("SCL", "SCL", W_YELLOW, 4.5), ("SDA", "SDA", W_BLUE, 1)]:
@@ -429,7 +488,32 @@ def voice_s3_wiring():
     s.wire([amp["OUT+"], (spk_x + 2.4, amp["OUT+"][1]), (spk_x + 1.6, spk_y + 2.6)], W_RED, lw=1.6)
     s.wire([amp["OUT-"], (spk_x + 2.4, amp["OUT-"][1]), (spk_x + 1.6, spk_y - 2.6)], W_BLACK, lw=1.6)
 
-    power_chain(s, p, 104, sense=None)
+    power_chain(s, p, 104, sense=None, v3_flag=devkit)
+    if devkit:
+        s.note(118, 22, 50, ["G1 touch          G2 battery sense", "G4 amp DIN        G43 amp SD (TX)",
+                             "G5 SDA            G6 SCL", "G7 BCLK   G8 WS   G9 mic SD",
+                             "3V3 <- LDO (+ 1 µF on IN and OUT)", "5V unused   mic L/R -> GND"],
+               title="Pin map (GPIO number)", fc="#eef6ff", ec=W_BLUE)
+        s.note(118, 116, 50, ["GND symbol = solder to the brass frame", "same label = same net (wire them together)",
+                              "coloured = 0.9 mm brass wire", "too big for the brass case: desk / breadboard build"],
+               title="How to read")
+        s.note(4, 10, 112, ["Same firmware as the XIAO (\"Hey Coco\").  Needs 8 MB flash + PSRAM: N8R8 or N16R8, "
+                            "not N8 or N4R2.  Switch OFF before using USB."], fc="#fff0f0", ec=W_RED)
+        s.save("coco_voice_s3_devkit_wiring.png")
+        return
+    if four_mb:
+        s.note(118, 22, 50, ["G1 touch          G2 battery sense", "G4 amp DIN        TX (G43) amp SD",
+                             "G5 SDA            G6 SCL", "G7 BCLK   G8 WS   G9 mic SD",
+                             "3V3 <- LDO   5V unused   mic L/R -> GND"], title="Pin map (GPIO number)",
+               fc="#eef6ff", ec=W_BLUE)
+        s.note(118, 116, 50, ["GND symbol = solder to the brass frame", "same label = same net (wire them together)",
+                              "coloured = 0.9 mm brass wire", "numbers = the GPIO numbers printed on the board"],
+               title="How to read")
+        s.note(4, 10, 112, ["4 MB flash: wake word \"Hi ESP\" (or double-tap).  \"Hey Coco\" needs 8 MB.  "
+                            "Check the 1.3\" OLED pin order: some are VCC-GND.  Switch OFF before using USB."],
+               fc="#fff0f0", ec=W_RED)
+        s.save("coco_voice_s3_4mb_wiring.png")
+        return
     s.note(118, 22, 50, ["D0 G1 touch      D1 G2 battery sense", "D3 G4 amp DIN   D6 G43 amp SD",
                          "D4 G5 SDA        D5 G6 SCL", "D8 G7 BCLK   D9 G8 WS   D10 G9 mic SD",
                          "3V3 <- LDO   5V unused   mic L/R -> GND"], title="Pin map (XIAO pad / GPIO)", fc="#eef6ff",
@@ -1146,6 +1230,8 @@ def main():
     touch_wiring()
     voice_wiring()
     voice_s3_wiring()
+    voice_s3_wiring(four_mb=True)
+    voice_s3_wiring(devkit=True)
     dt, dv, ds = touch_design(), voice_design(), voice_design(s3=True)
     for d in (dt, dv, ds):
         case_sheet(d, f"{d.slug}_case.png")

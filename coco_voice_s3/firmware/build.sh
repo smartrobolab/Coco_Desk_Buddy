@@ -6,6 +6,8 @@
 #   coco_voice_s3/firmware/build.sh
 #   LANG_CODE=hi-IN coco_voice_s3/firmware/build.sh     # UI / voice-prompt language
 #   JOBS=6 coco_voice_s3/firmware/build.sh              # use only 6 CPU cores (less RAM)
+#   SIMPLE=1 coco_voice_s3/firmware/build.sh            # simple build for 4 MB S3 boards
+#                                                       # (Super Mini, N4R2): wake word "Hi ESP"
 #
 # Output: xiaozhi-esp32/build/*.bin next to this script (flash with ./flash.sh)
 set -euo pipefail
@@ -18,6 +20,8 @@ XIAOZHI_REF="${XIAOZHI_REF:-d395220a83fb7a16ea5dc761c08a4816177cc880}"
 LANG_CODE="${LANG_CODE:-en-US}"
 # JOBS=6 limits the build to 6 CPU cores. Use it if Docker runs out of memory
 # (a full-speed build on a 16-core laptop can take more RAM than Docker Desktop has).
+BUILD_ARGS="--name coco-s3"
+if [ -n "${SIMPLE:-}" ]; then BUILD_ARGS="--name coco-s3-4mb --wake-word ${WAKE:-wn9_hiesp}"; fi
 CPU_ARGS=()
 if [ -n "${JOBS:-}" ]; then CPU_ARGS=(--cpuset-cpus "0-$((JOBS - 1))"); fi
 
@@ -31,7 +35,7 @@ python3 tools/install_coco.py xiaozhi-esp32
 docker run --rm "${CPU_ARGS[@]}" -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$FW_DIR/xiaozhi-esp32:/project" -w /project "$IDF_IMAGE" \
   bash -c "git config --global --add safe.directory '*' && \
-           python3 scripts/build.py coco/s3 --language $LANG_CODE "
+           python3 scripts/build.py coco/s3 --language $LANG_CODE $BUILD_ARGS"
 
 echo
 echo "Built coco/s3. Flash it with:  $FW_DIR/flash.sh /dev/ttyACM0"
