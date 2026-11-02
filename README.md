@@ -2,7 +2,11 @@
 
 Coco is a palm-sized desk companion built as a **brass wire circuit sculpture**: a 0.96" OLED face, a tiny ESP32 board and a 16340 Li-ion cell held in a cage of 1.2 mm brass wire, wired with 0.9 mm brass wire. Touch its head and it reacts.
 
-![Coco, three versions](shared/images/coco_overview.png)
+![Coco, three versions](shared/images/coco_family_render.png)
+
+*Coco Touch, Coco Voice C3 and Coco Voice S3, rendered with Blender from the 3D models (`tools/render_realistic.py`).*
+
+![Coco, three versions: what is inside](shared/images/coco_overview.png)
 
 ## Pick a version
 
@@ -52,6 +56,7 @@ Coco_Desk_Buddy/
 sim/build.sh && sim/build/render test && python3 sim/make_screens.py   # screens + tests
 python3 tools/make_diagrams.py                                          # wiring, cases, assembly, templates
 python3 tools/make_stl.py                                               # STL models
+BLENDER=/path/to/blender python3 tools/render_realistic.py              # photo-style renders (Blender 4.2+)
 ```
 
 The face engine and the voice code exist once per version folder, so each folder is complete on its own. Edit the master copy (face engine: `coco_touch/firmware/coco_touch/`, voice code: `coco_voice_c3/firmware/shared/`), then run `tools/sync_shared.sh` to copy it to the others (`--check` only reports differences).

@@ -6,12 +6,18 @@ Want it to answer to **"Hey Coco"**? Build [Coco Voice S3](../coco_voice_s3) ins
 
 **Frame:** 56 x 44 x 30 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** XiaoZhi custom board `coco/c3` ([firmware/](firmware))  ·  **Battery life:** about 3-5 h of talking
 
-![Coco Voice C3 case](images/coco_voice_c3_case.png)
+<p align="center">
+  <img src="images/coco_voice_c3_render.png" width="49%" alt="Coco Voice C3, front">
+  <img src="images/coco_voice_c3_render_back.png" width="49%" alt="Coco Voice C3, back">
+</p>
+
+*Rendered with Blender from the 3D model of the brass frame and real-size parts (front and back). Not a photo of a finished build.*
 
 ## Everything for this version
 
 | File | What it is |
 |---|---|
+| [images/coco_voice_c3_render.png](images/coco_voice_c3_render.png), [_render_back.png](images/coco_voice_c3_render_back.png) | photo-style renders (front, back) |
 | [images/coco_voice_c3_wiring.png](images/coco_voice_c3_wiring.png) | circuit diagram |
 | [images/coco_voice_c3_size.png](images/coco_voice_c3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
 | [images/coco_voice_c3_case_dimensions.png](images/coco_voice_c3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
@@ -64,6 +70,8 @@ Coco Voice C3 is **56 x 44 x 30 mm** (wire centre lines; add 1.2 mm for the wire
 Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
 
 ![Coco Voice C3 case diagram](images/coco_voice_c3_case_dimensions.png)
+
+![Coco Voice C3 case drawing](images/coco_voice_c3_case.png)
 
 ## Building the case
 

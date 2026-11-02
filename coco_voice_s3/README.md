@@ -4,12 +4,18 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 
 **Frame:** 56 x 44 x 30 mm  ·  **Board:** Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  ·  **Firmware:** XiaoZhi custom board `coco/s3` ([firmware/](firmware))  ·  **Battery life:** about 3-4 h of talking
 
-![Coco Voice S3 case](images/coco_voice_s3_case.png)
+<p align="center">
+  <img src="images/coco_voice_s3_render.png" width="49%" alt="Coco Voice S3, front">
+  <img src="images/coco_voice_s3_render_back.png" width="49%" alt="Coco Voice S3, back">
+</p>
+
+*Rendered with Blender from the 3D model of the brass frame and real-size parts (front and back). Not a photo of a finished build.*
 
 ## Everything for this version
 
 | File | What it is |
 |---|---|
+| [images/coco_voice_s3_render.png](images/coco_voice_s3_render.png), [_render_back.png](images/coco_voice_s3_render_back.png) | photo-style renders (front, back) |
 | [images/coco_voice_s3_wiring.png](images/coco_voice_s3_wiring.png) | circuit diagram |
 | [images/coco_voice_s3_size.png](images/coco_voice_s3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
 | [images/coco_voice_s3_case_dimensions.png](images/coco_voice_s3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
@@ -66,6 +72,8 @@ Coco Voice S3 is **56 x 44 x 30 mm** (wire centre lines; add 1.2 mm for the wire
 Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
 
 ![Coco Voice S3 case diagram](images/coco_voice_s3_case_dimensions.png)
+
+![Coco Voice S3 case drawing](images/coco_voice_s3_case.png)
 
 ## Building the case
 

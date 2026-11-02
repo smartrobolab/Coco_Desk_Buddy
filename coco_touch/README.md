@@ -4,12 +4,18 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 
 **Frame:** 52 x 40 x 20 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** Arduino ([firmware/coco_touch](firmware/coco_touch))  ·  **Battery life:** about a day, weeks in deep sleep
 
-![Coco Touch case](images/coco_touch_case.png)
+<p align="center">
+  <img src="images/coco_touch_render.png" width="49%" alt="Coco Touch, front">
+  <img src="images/coco_touch_render_back.png" width="49%" alt="Coco Touch, back">
+</p>
+
+*Rendered with Blender from the 3D model of the brass frame and real-size parts (front and back). Not a photo of a finished build.*
 
 ## Everything for this version
 
 | File | What it is |
 |---|---|
+| [images/coco_touch_render.png](images/coco_touch_render.png), [_render_back.png](images/coco_touch_render_back.png) | photo-style renders (front, back) |
 | [images/coco_touch_wiring.png](images/coco_touch_wiring.png) | circuit diagram |
 | [images/coco_touch_size.png](images/coco_touch_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
 | [images/coco_touch_case_dimensions.png](images/coco_touch_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
@@ -64,6 +70,8 @@ Coco Touch is **52 x 40 x 20 mm** (wire centre lines; add 1.2 mm for the wire it
 Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
 
 ![Coco Touch case diagram](images/coco_touch_case_dimensions.png)
+
+![Coco Touch case drawing](images/coco_touch_case.png)
 
 ## Building the case
 
