@@ -11,6 +11,8 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | File | What it is |
 |---|---|
 | [images/coco_touch_wiring.png](images/coco_touch_wiring.png) | circuit diagram |
+| [images/coco_touch_size.png](images/coco_touch_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
+| [images/coco_touch_case_dimensions.png](images/coco_touch_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
 | [images/coco_touch_case.png](images/coco_touch_case.png) | brass case: 3D, front, side, top, measurements, cut list |
 | [images/coco_touch_assembly.png](images/coco_touch_assembly.png) | 6 build steps |
 | [images/coco_touch_bending_template.pdf](images/coco_touch_bending_template.pdf) | 1:1 template, print at 100 % |
@@ -50,6 +52,18 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | GND | brass frame |
 
 Power path: battery → TP4056 (B+/B-) → OUT+ → slide switch → **BAT_SW** → LDO → 3V3.
+
+## Size
+
+Coco Touch is **52 x 40 x 20 mm** (wire centre lines; add 1.2 mm for the wire itself), smaller than a bank card.
+
+![Coco Touch size diagram](images/coco_touch_size.png)
+
+## Case diagram
+
+Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
+
+![Coco Touch case diagram](images/coco_touch_case_dimensions.png)
 
 ## Building the case
 

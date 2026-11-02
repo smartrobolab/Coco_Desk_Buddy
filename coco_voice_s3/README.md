@@ -11,6 +11,8 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 | File | What it is |
 |---|---|
 | [images/coco_voice_s3_wiring.png](images/coco_voice_s3_wiring.png) | circuit diagram |
+| [images/coco_voice_s3_size.png](images/coco_voice_s3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
+| [images/coco_voice_s3_case_dimensions.png](images/coco_voice_s3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
 | [images/coco_voice_s3_case.png](images/coco_voice_s3_case.png) | brass case: 3D, front, side, top, measurements, cut list |
 | [images/coco_voice_s3_assembly.png](images/coco_voice_s3_assembly.png) | 6 build steps |
 | [images/coco_voice_s3_bending_template.pdf](images/coco_voice_s3_bending_template.pdf) | 1:1 template, print at 100 % |
@@ -52,6 +54,18 @@ Same modules and wires as Coco Voice C3; only the board pins change. Wires with 
 | GND | - | brass frame |
 
 Don't use the XIAO's battery pads on its underside: Coco charges through the TP4056 and powers the XIAO through the LDO.
+
+## Size
+
+Coco Voice S3 is **56 x 44 x 30 mm** (wire centre lines; add 1.2 mm for the wire itself), smaller than a bank card.
+
+![Coco Voice S3 size diagram](images/coco_voice_s3_size.png)
+
+## Case diagram
+
+Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
+
+![Coco Voice S3 case diagram](images/coco_voice_s3_case_dimensions.png)
 
 ## Building the case
 

@@ -13,6 +13,8 @@ Want it to answer to **"Hey Coco"**? Build [Coco Voice S3](../coco_voice_s3) ins
 | File | What it is |
 |---|---|
 | [images/coco_voice_c3_wiring.png](images/coco_voice_c3_wiring.png) | circuit diagram |
+| [images/coco_voice_c3_size.png](images/coco_voice_c3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
+| [images/coco_voice_c3_case_dimensions.png](images/coco_voice_c3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
 | [images/coco_voice_c3_case.png](images/coco_voice_c3_case.png) | brass case: 3D, front, side, top, measurements, cut list |
 | [images/coco_voice_c3_assembly.png](images/coco_voice_c3_assembly.png) | 6 build steps |
 | [images/coco_voice_c3_bending_template.pdf](images/coco_voice_c3_bending_template.pdf) | 1:1 template, print at 100 % |
@@ -50,6 +52,18 @@ Everything from [Coco Touch](../coco_touch/README.md#parts), plus:
 | 5V | not connected |
 
 INMP441 L/R → GND. MAX98357A GAIN not connected (9 dB).
+
+## Size
+
+Coco Voice C3 is **56 x 44 x 30 mm** (wire centre lines; add 1.2 mm for the wire itself), smaller than a bank card.
+
+![Coco Voice C3 size diagram](images/coco_voice_c3_size.png)
+
+## Case diagram
+
+Every bar of the brass frame with its position and length, and the cut list (piece, wire, length, quantity).
+
+![Coco Voice C3 case diagram](images/coco_voice_c3_case_dimensions.png)
 
 ## Building the case
 

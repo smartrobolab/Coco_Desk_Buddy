@@ -10,6 +10,7 @@ Each version gets its own folder, and every file name starts with the version:
   shared/images/         coco_overview.png (all versions side by side)
 Needs matplotlib.
 """
+import math
 import os
 
 import matplotlib
@@ -914,6 +915,233 @@ def bending_template(designs):
         print(f"wrote {os.path.basename(path)}")
 
 
+# ============================================== size + case dimension sheets
+
+PART_SIZES = {  # real module sizes in mm (w x h x thickness), shown on the size sheet
+    "OLED": "27.3 x 27.8 x 4.1", "ESP32-C3": "22.5 x 18 x 3.6", "XIAO S3": "21 x 17.8 x 3.4",
+    "TP4056": "17 x 12 x 3.6", "TTP223": "15 x 11 x 1.6", "16340": "Ø16 x 34", "switch": "8.6 x 3.6 x 4",
+    "LDO": "4.5 x 2.5 (SOT-89)", "MAX98357A": "19.3 x 17.8 x 3", "INMP441": "14 x 14 x 1.6", "speaker": "Ø20 x 4.6",
+}
+
+
+def size_sheet(d):
+    fig = plt.figure(figsize=(18, 10.5), dpi=120, facecolor=BG)
+    fig.text(0.02, 0.955, f"{d.name}  -  size diagram", fontsize=22, weight="bold", color=INK)
+    fig.text(0.02, 0.925, f"Outer size {d.W} x {d.H} x {d.D} mm (brass wire centre lines, add 1.2 mm for the wire "
+             "itself).  All parts drawn at their real size.", fontsize=11, color="#555")
+    for k, (view, title, rect) in enumerate([("front", "FRONT", [0.01, 0.40, 0.27, 0.47]),
+                                             ("side", "RIGHT SIDE", [0.27, 0.40, 0.2, 0.47]),
+                                             ("top", "TOP", [0.01, 0.02, 0.27, 0.36])]):
+        ax = fig.add_axes(rect)
+        view2d(ax, d, view, title)
+
+    # credit card for scale
+    ax = fig.add_axes([0.27, 0.03, 0.22, 0.34])
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title("Scale: next to a bank card (85.6 x 54 mm)", fontsize=10.5, weight="bold", color=INK)
+    ax.add_patch(FancyBboxPatch((0, 0), 85.6, 54, boxstyle="round,pad=0,rounding_size=3.2", fc="#dfe7f1", ec="#7a8ca5",
+                                lw=1.4))
+    ax.add_patch(Rectangle((8, 30), 12, 9, fc="#d4b65a", ec="#9a7a2a", lw=0.8))  # chip
+    ox, oy = 85.6 - d.W - 4, 4
+    ax.add_patch(Rectangle((ox, oy), d.W, d.H, fc="#f6e7c4", ec=BRASS, lw=2.4, alpha=0.95))
+    ax.plot([ox + 19.5, ox + 19.5], [oy, oy + d.H], color=BRASS, lw=1.6)
+    oled = next(p for p in d.parts if p["kind"] == "oled")
+    ax.add_patch(Rectangle((ox + oled["x"] + 1.5, oy + oled["y"] + 6), oled["w"] - 3, oled["h"] - 10, fc="#081218"))
+    for ex in (0.3, 0.7):
+        ax.add_patch(FancyBboxPatch((ox + oled["x"] + oled["w"] * ex - 3.6, oy + oled["y"] + 11), 7.2, 9,
+                                    boxstyle="round,pad=0,rounding_size=1.5", fc="#28e1eb", ec="none"))
+    bat = next(p for p in d.parts if p["kind"] == "battery")
+    ax.add_patch(Rectangle((ox + bat["x"], oy + bat["y"]), bat["w"], bat["h"], fc="#5c7cfa", alpha=0.8))
+    ax.text(ox + d.W / 2, oy + d.H + 2, f"Coco {d.W} x {d.H}", ha="center", fontsize=8.5, weight="bold", color=BRASS_DARK)
+    ax.set_xlim(-2, 88)
+    ax.set_ylim(-3, 60)
+
+    # part table
+    ax = fig.add_axes([0.5, 0.03, 0.48, 0.86])
+    ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.02", fc="#eef6ff", ec=W_BLUE,
+                                transform=ax.transAxes))
+    ax.text(0.04, 0.95, "Every part and where it sits", fontsize=14, weight="bold", color=INK, transform=ax.transAxes)
+    hdr = ["Part", "Size (mm)", "Position from front-left-bottom corner (x, y, z)"]
+    xs = [0.04, 0.24, 0.50]
+    for x, h in zip(xs, hdr):
+        ax.text(x, 0.89, h, fontsize=10.5, weight="bold", color=W_BLUE, transform=ax.transAxes)
+    y = 0.84
+    for p in sorted(d.parts, key=lambda q: (q["z"], q["y"])):
+        ax.add_patch(Rectangle((0.02, y - 0.012), 0.012, 0.024, fc=p["color"], transform=ax.transAxes))
+        ax.text(xs[0], y, p["label"], fontsize=10.5, weight="bold", color=INK, transform=ax.transAxes, va="center")
+        ax.text(xs[1], y, PART_SIZES.get(p["label"], f'{p["w"]:g} x {p["h"]:g} x {p["d"]:g}'), fontsize=10,
+                color=INK, transform=ax.transAxes, va="center", family="DejaVu Sans Mono")
+        ax.text(xs[2], y, f'x {p["x"]:>5.1f}   y {p["y"]:>5.1f}   z {p["z"]:>5.1f}', fontsize=10, color="#333",
+                transform=ax.transAxes, va="center", family="DejaVu Sans Mono")
+        y -= 0.062
+    notes = ["x = width (left -> right), y = height (up), z = depth (front -> back).",
+             "Position = the part's corner nearest the front-left-bottom of the frame.",
+             "Module sizes vary between sellers: measure yours and keep >= 1 mm clearance."]
+    for i, n in enumerate(notes):
+        ax.text(0.04, 0.12 - i * 0.04, n, fontsize=9.5, color="#555", transform=ax.transAxes)
+    fig.savefig(out_path(f"{d.slug}_size.png"), facecolor=BG)
+    plt.close(fig)
+    print(f"wrote {d.slug}_size.png")
+
+
+def classify_bar(d, a, b, step):
+    """Name and wire gauge of a frame piece."""
+    L = float(np.linalg.norm(np.subtract(b, a)))
+    if step == 1:
+        if a[2] != b[2]:
+            return "strut", "1.2", L
+        return ("divider" if a[0] == b[0] == 19.5 else "rectangle side"), "1.2", L
+    if L < 3:
+        return "ring tab", "1.2", L
+    if a[1] == 0:
+        return "floor bar", "1.2", L
+    if min(a[0], b[0]) >= 21:
+        return "speaker grille bar", "0.9", L
+    if max(a[0], b[0]) <= 19.6:
+        return "touch-pad seat bar", "1.2", L
+    return "top bar (touch-pad seat)", "1.2", L
+
+
+def cut_list(d):
+    rows = [("front + back rectangle", "1.2", 2 * d.W + 2 * d.H, 2, "4 x 90°, joint at bottom")]
+    groups = {}
+    for a, b, step in d.bars:
+        name, gauge, L = classify_bar(d, a, b, step)
+        if name == "rectangle side":
+            continue
+        key = (name, gauge, round(L, 1))
+        groups[key] = groups.get(key, 0) + 1
+    for (name, gauge, L), n in sorted(groups.items(), key=lambda kv: (kv[0][1] != "1.2", -kv[0][2])):
+        cut = L + 2 if name == "ring tab" else L
+        rows.append((name, gauge, cut, n, "L-shape: 2 mm on the ring" if name == "ring tab" else "straight"))
+    r = d.rings[0][3]
+    rows.append((f"battery ring Ø{2 * r:.1f}", "1.2", round(2 * math.pi * r + 4, 1), len(d.rings),
+                 "on a 16 mm rod, 4 mm overlap"))
+    return rows
+
+
+def case_dims_sheet(d):
+    fig = plt.figure(figsize=(18, 11), dpi=120, facecolor=BG)
+    fig.text(0.02, 0.955, f"{d.name}  -  case diagram (brass frame)", fontsize=22, weight="bold", color=INK)
+    fig.text(0.02, 0.925, "All sizes in mm, measured to the wire centre lines.  Thick = 1.2 mm frame, thin = seats, "
+             "tabs (1.2 mm) and grille (0.9 mm).  Red dots = 90° bends.", fontsize=11, color="#555")
+    W, H, D = d.W, d.H, d.D
+    seat_z = sorted({a[2] for a, b, s in d.bars if s == 2 and a[1] == 0 and a[2] == b[2]})
+    top_z = sorted({a[2] for a, b, s in d.bars if s == 2 and a[1] == H and a[2] == b[2]})
+    ring_y = sorted({y for cx, y, cz, r, s in d.rings})
+    r = d.rings[0][3]
+    rcx, rcz = d.rings[0][0], d.rings[0][2]
+
+    def frame_ax(rect, title, U, V):
+        ax = fig.add_axes(rect)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        ax.set_title(title, fontsize=12, weight="bold", color=INK)
+        ax.set_xlim(-14, U + 16)
+        ax.set_ylim(-14, V + 12)
+        return ax
+
+    def bends(ax, pts):
+        for p in pts:
+            ax.add_patch(Circle(p, 0.9, fc="#c92a2a", ec="none", zorder=6))
+
+    # FRONT (x, y)
+    ax = frame_ax([0.0, 0.46, 0.34, 0.42], "FRONT  (x across, y up)", W, H)
+    ax.add_patch(Rectangle((0, 0), W, H, fc="none", ec=BRASS, lw=3.2))
+    ax.plot([19.5, 19.5], [0, H], color=BRASS, lw=3)
+    bends(ax, [(0, 0), (W, 0), (W, H), (0, H)])
+    for y in ring_y:
+        ax.plot([rcx - r, rcx + r], [y, y], color=BRASS, lw=2)
+        ax.text(rcx, y + 1.2, f"ring @ {y:g}", ha="center", fontsize=7.5, color=BRASS_DARK)
+    dim(ax, (0, 0), (W, 0), -7, f"{W:g}")
+    dim(ax, (W, 0), (W, H), 7, f"{H:g}", vertical=True)
+    dim(ax, (0, H), (19.5, H), 5, "19.5")
+    dim(ax, (19.5, H), (W, H), 5, f"{W - 19.5:g}")
+    for y in ring_y:
+        dim(ax, (0, 0), (0, y), -4 - 4 * ring_y.index(y), f"{y:g}", vertical=True)
+
+    # SIDE (z, y)
+    ax = frame_ax([0.33, 0.46, 0.22, 0.42], "RIGHT SIDE  (z = depth)", D, H)
+    ax.add_patch(Rectangle((0, 0), D, H, fc="none", ec=BRASS, lw=3.2))
+    for z in seat_z:
+        ax.add_patch(Circle((z, 0), 1.0, fc=BRASS, ec="none"))
+    for z in top_z:
+        ax.add_patch(Circle((z, H), 0.8 if top_z and len(top_z) > 2 else 1.0, fc=BRASS, ec="none"))
+    dim(ax, (0, 0), (D, 0), -7, f"{D:g}")
+    dim(ax, (D, 0), (D, H), 7, f"{H:g}", vertical=True)
+    ax.text(0, H + 3, "front", fontsize=8, color="#666")
+    ax.text(D, H + 3, "back", fontsize=8, color="#666", ha="right")
+    ax.text(D / 2, -12.5, "dots = bars seen end-on", ha="center", fontsize=7.5, color="#666")
+
+    # TOP (x, z) with the front edge at the bottom
+    ax = frame_ax([0.0, 0.03, 0.34, 0.42], "TOP  (front edge at the bottom)", W, D)
+    ax.add_patch(Rectangle((0, 0), W, D, fc="none", ec=BRASS, lw=3.2))
+    ax.plot([19.5, 19.5], [0, D], color=BRASS, lw=3, alpha=0.6)
+    for a, b, s in d.bars:
+        if s == 2 and a[1] == H and a[2] == b[2]:
+            name, gauge, L = classify_bar(d, a, b, s)
+            ax.plot([a[0], b[0]], [a[2], b[2]], color=BRASS, lw=1.4 if gauge == "0.9" else 2.2)
+    ax.add_patch(Circle((rcx, rcz), r, fc="none", ec=BRASS, lw=2))
+    ax.text(rcx, rcz, f"Ø{2 * r:.1f}", ha="center", va="center", fontsize=8, color=BRASS_DARK)
+    dim(ax, (0, 0), (W, 0), -7, f"{W:g}")
+    dim(ax, (W, 0), (W, D), 7, f"{D:g}", vertical=True)
+    for z in top_z:
+        x0 = min(min(a[0], b[0]) for a, b, s in d.bars if s == 2 and a[1] == H and a[2] == b[2] == z)
+        if x0 < 19:  # bar over the battery bay: label on the left
+            ax.text(-1.5, z, f"{z:g}", fontsize=7, va="center", ha="right", color="#c92a2a")
+        else:
+            ax.text(W + 1.5, z, f"{z:g}", fontsize=7, va="center", color="#c92a2a")
+    ax.text(W / 2, D + 3, "red numbers = z of each top bar (from the front)", fontsize=7, ha="center", color="#c92a2a")
+
+    # floor plan (x, z) for the floor bars
+    ax = frame_ax([0.33, 0.03, 0.22, 0.42], "FLOOR BARS (from below)", W, D)
+    ax.add_patch(Rectangle((0, 0), W, D, fc="none", ec=BRASS, lw=3.2))
+    for z in seat_z:
+        ax.plot([19.5, W], [z, z], color=BRASS, lw=2.2)
+        ax.text(W + 1.5, z, f"{z:g}", fontsize=7, va="center", color="#c92a2a")
+    ax.plot([19.5, 19.5], [0, D], color=BRASS, lw=3, alpha=0.6)
+    dim(ax, (19.5, 0), (W, 0), -7, f"{W - 19.5:g}")
+
+    # cut list
+    ax = fig.add_axes([0.56, 0.03, 0.42, 0.88])
+    ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.02", fc="#fff8e1", ec=BRASS,
+                                transform=ax.transAxes))
+    ax.text(0.04, 0.95, "Cut list", fontsize=15, weight="bold", color=INK, transform=ax.transAxes)
+    xs = [0.04, 0.09, 0.47, 0.57, 0.70, 0.77]
+    for x, h in zip(xs, ["#", "Piece", "Wire", "Length", "Qty", "How"]):
+        ax.text(x, 0.89, h, fontsize=10.5, weight="bold", color=BRASS_DARK, transform=ax.transAxes)
+    rows = cut_list(d)
+    y = 0.84
+    total = {"1.2": 0.0, "0.9": 0.0}
+    for i, (name, gauge, L, n, how) in enumerate(rows, 1):
+        total[gauge] += L * n
+        for x, t in zip(xs, [str(i), name, f"{gauge} mm", f"{L:g}", f"x{n}", how]):
+            ax.text(x, y, t, fontsize=9.6 if x != xs[5] else 8.2, color=INK, transform=ax.transAxes, va="center")
+        y -= 0.055
+    y -= 0.02
+    ax.text(0.04, y, f"Total 1.2 mm wire: {total['1.2'] / 10:.0f} cm (buy {total['1.2'] / 10 * 1.3:.0f} cm)",
+            fontsize=10.5, weight="bold", color=INK, transform=ax.transAxes)
+    if total["0.9"]:
+        y -= 0.045
+        ax.text(0.04, y, f"Total 0.9 mm wire for the grille: {total['0.9'] / 10:.0f} cm", fontsize=10.5,
+                weight="bold", color=INK, transform=ax.transAxes)
+    y -= 0.045
+    ax.text(0.04, y, "Plus ~40-50 cm of 0.9 mm wire for the signal wires (see the circuit diagram).", fontsize=9.5,
+            color="#555", transform=ax.transAxes)
+    steps = ["Order: rectangles -> dividers -> struts -> floor/top bars -> rings -> tabs.",
+             "Bend on the 1:1 bending template, then tape both rectangles in place",
+             f"{D:g} mm apart before soldering the struts.",
+             "Check square: both diagonals of each rectangle must match (±0.5 mm)."]
+    for i, t in enumerate(steps):
+        ax.text(0.04, 0.12 - i * 0.035, t, fontsize=9.5, color="#555", transform=ax.transAxes)
+    fig.savefig(out_path(f"{d.slug}_case_dimensions.png"), facecolor=BG)
+    plt.close(fig)
+    print(f"wrote {d.slug}_case_dimensions.png")
+
+
 def main():
     touch_wiring()
     voice_wiring()
@@ -922,6 +1150,8 @@ def main():
     for d in (dt, dv, ds):
         case_sheet(d, f"{d.slug}_case.png")
         assembly_sheet(d, f"{d.slug}_assembly.png")
+        size_sheet(d)
+        case_dims_sheet(d)
     overview(dt, dv, ds)
     bending_template([dt, dv, ds])
 
