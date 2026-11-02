@@ -2,7 +2,7 @@
 // Matches coco_voice_s3/images/coco_voice_s3_wiring.png. Same modules as Coco Voice (C3);
 // the GPIOs are Kibo's S3 pins, so XIAO pad names are in the comments.
 // The 4 MB build (coco-s3-4mb) is for the ESP32-S3 Super Mini (HW-747): same GPIOs,
-// 1.3" SH1106 OLED, RGB LED on GPIO48. Wiring: coco_voice_s3/images/coco_voice_s3_4mb_wiring.png.
+// 1.3" SH1106 OLED, RGB LED on GPIO48. Wiring: coco_voice_s3/images/coco_voice_s3_hw747_esp32s3_wiring.png.
 #ifndef _BOARD_CONFIG_H_
 #define _BOARD_CONFIG_H_
 

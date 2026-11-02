@@ -6,7 +6,7 @@
 Each version gets its own folder, and every file name starts with the version:
   coco_touch/images/     coco_touch_wiring.png, _case.png, _assembly.png, _bending_template.pdf
   coco_voice_c3/images/  coco_voice_c3_wiring.png, _case.png, _assembly.png, _bending_template.pdf
-  coco_voice_s3/images/  coco_voice_s3_wiring.png, _4mb_wiring.png, _devkit_wiring.png, _case.png, _assembly.png, _bending_template.pdf
+  coco_voice_s3/images/  coco_voice_s3_wiring.png, _hw747_esp32s3_wiring.png, _devkit_wiring.png, _case.png, _assembly.png, _bending_template.pdf
   shared/images/         coco_overview.png (all versions side by side)
 Needs matplotlib.
 """
@@ -512,7 +512,7 @@ def voice_s3_wiring(four_mb=False, devkit=False):
         s.note(4, 10, 112, ["4 MB flash: wake word \"Hi ESP\" (or double-tap).  \"Hey Coco\" needs 8 MB.  "
                             "Check the 1.3\" OLED pin order: some are VCC-GND.  Switch OFF before using USB."],
                fc="#fff0f0", ec=W_RED)
-        s.save("coco_voice_s3_4mb_wiring.png")
+        s.save("coco_voice_s3_hw747_esp32s3_wiring.png")
         return
     s.note(118, 22, 50, ["D0 G1 touch      D1 G2 battery sense", "D3 G4 amp DIN   D6 G43 amp SD",
                          "D4 G5 SDA        D5 G6 SCL", "D8 G7 BCLK   D9 G8 WS   D10 G9 mic SD",

@@ -17,7 +17,7 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 |---|---|
 | [images/coco_voice_s3_render.png](images/coco_voice_s3_render.png), [_render_back.png](images/coco_voice_s3_render_back.png) | photo-style renders (front, back) |
 | [images/coco_voice_s3_wiring.png](images/coco_voice_s3_wiring.png) | circuit diagram |
-| [images/coco_voice_s3_4mb_wiring.png](images/coco_voice_s3_4mb_wiring.png) | circuit diagram, ESP32-S3 Super Mini + 1.3" OLED ("Hi ESP") |
+| [images/coco_voice_s3_hw747_esp32s3_wiring.png](images/coco_voice_s3_hw747_esp32s3_wiring.png) | circuit diagram, ESP32-S3 Super Mini + 1.3" OLED ("Hi ESP") |
 | [images/coco_voice_s3_devkit_wiring.png](images/coco_voice_s3_devkit_wiring.png) | circuit diagram, ESP32-S3-DevKitC-1 |
 | [images/coco_voice_s3_size.png](images/coco_voice_s3_size.png) | size diagram: outer size, every part's real size and position, bank-card scale |
 | [images/coco_voice_s3_case_dimensions.png](images/coco_voice_s3_case_dimensions.png) | case diagram: every frame bar dimensioned + cut list |
@@ -108,9 +108,9 @@ To make the wake word more or less sensitive, change `CONFIG_CUSTOM_WAKE_WORD_TH
 
 ### Super Mini build (4 MB, "Hi ESP")
 
-The ESP32-S3 Super Mini (HW-747) has only 4 MB of flash. The app (2.2 MB) and the smallest model that can hear "Hey Coco" (2.2 MB) don't fit together, so this build uses Espressif's "Hi ESP" wake word (double-tap works too). Everything else is the same. It drives a **1.3" SH1106 OLED** and the board's RGB LED on GPIO48. Same GPIO numbers, wired as in [images/coco_voice_s3_4mb_wiring.png](images/coco_voice_s3_4mb_wiring.png).
+The ESP32-S3 Super Mini (HW-747) has only 4 MB of flash. The app (2.2 MB) and the smallest model that can hear "Hey Coco" (2.2 MB) don't fit together, so this build uses Espressif's "Hi ESP" wake word (double-tap works too). Everything else is the same. It drives a **1.3" SH1106 OLED** and the board's RGB LED on GPIO48. Same GPIO numbers, wired as in [images/coco_voice_s3_hw747_esp32s3_wiring.png](images/coco_voice_s3_hw747_esp32s3_wiring.png).
 
-- Ready-made: flash [firmware/release/coco_voice_s3_supermini-merged.bin](firmware/release/coco_voice_s3_supermini-merged.bin) at **0x0**.
+- Ready-made: flash [firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin](firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin) at **0x0**.
 - Build it yourself: `SIMPLE=1 coco_voice_s3/firmware/build.sh`, then `coco_voice_s3/firmware/flash.sh /dev/ttyACM0`.
 
 ### First start
