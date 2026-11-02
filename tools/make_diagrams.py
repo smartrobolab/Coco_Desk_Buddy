@@ -1,0 +1,806 @@
+#!/usr/bin/env python3
+"""Draws Coco's wiring diagrams, brass case drawings and assembly steps.
+
+    python3 tools/make_diagrams.py
+
+Writes to docs/images/:
+  coco_touch_wiring.png  coco_voice_wiring.png    circuit diagrams
+  coco_touch_case.png    coco_voice_case.png      dimensioned brass frame (front/top/side + 3D)
+  coco_touch_assembly.png coco_voice_assembly.png build steps
+  coco_overview.png                               both versions side by side
+  coco_bending_template.pdf                       1:1 frame template to bend on (print at 100 %)
+Needs matplotlib.
+"""
+import os
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "docs", "images")
+
+# ---------------------------------------------------------------- colours
+BG = "#fbfaf6"
+INK = "#22252b"
+BRASS = "#c9962c"
+BRASS_DARK = "#8a6414"
+W_RED = "#d62828"      # battery +
+W_BLACK = "#222222"    # GND
+W_ORANGE = "#f08c00"   # 3V3
+W_BLUE = "#1c7ed6"     # SDA
+W_YELLOW = "#e0b000"   # SCL
+W_GREEN = "#2b9348"    # touch
+W_PURPLE = "#7048e8"   # battery sense
+W_CYAN = "#0c8599"     # I2S clocks
+W_PINK = "#d6336c"     # I2S data
+W_GREY = "#868e96"
+PCB_BLUE = "#2f5f9e"
+PCB_GREEN = "#2d7a46"
+PCB_BLACK = "#2b2b2b"
+PCB_RED = "#b03030"
+PCB_PURPLE = "#5b3d99"
+
+
+# ======================================================== wiring diagrams
+
+class Sheet:
+    def __init__(self, title, subtitle, w=170, h=112):
+        self.fig = plt.figure(figsize=(w / 10, h / 10), dpi=150, facecolor=BG)
+        self.ax = self.fig.add_axes([0, 0, 1, 1])
+        self.ax.set_xlim(0, w)
+        self.ax.set_ylim(0, h)
+        self.ax.set_aspect("equal")
+        self.ax.axis("off")
+        self.w, self.h = w, h
+        self.ax.text(4, h - 5, title, fontsize=19, weight="bold", color=INK, va="center")
+        self.ax.text(4, h - 10.5, subtitle, fontsize=10.5, color="#555", va="center")
+
+    def module(self, x, y, w, h, name, sub, color, pins, text_color="white"):
+        """pins: list of (label, side, pos) side in L/R/T/B, pos = offset along that side.
+        Returns {label: (px, py)} endpoints just outside the board."""
+        ax = self.ax
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.6", fc=color, ec="#111",
+                                    lw=1.2, zorder=3))
+        ax.text(x + w / 2, y + h / 2 + (1.6 if sub else 0), name, ha="center", va="center", fontsize=9.5,
+                weight="bold", color=text_color, zorder=4)
+        if sub:
+            ax.text(x + w / 2, y + h / 2 - 2.2, sub, ha="center", va="center", fontsize=6.8, color=text_color,
+                    zorder=4)
+        out = {}
+        for label, side, pos in pins:
+            if side == "L":
+                px, py, tx, ty, ha, va = x, y + pos, x + 1.0, y + pos, "left", "center"
+            elif side == "R":
+                px, py, tx, ty, ha, va = x + w, y + pos, x + w - 1.0, y + pos, "right", "center"
+            elif side == "T":
+                px, py, tx, ty, ha, va = x + pos, y + h, x + pos, y + h - 1.0, "center", "top"
+            else:
+                px, py, tx, ty, ha, va = x + pos, y, x + pos, y + 1.0, "center", "bottom"
+            ax.add_patch(Circle((px, py), 0.75, fc="#e9d18a", ec="#6b5414", lw=0.8, zorder=5))
+            rot = 90 if side in "TB" else 0
+            ax.text(tx, ty, label, ha=ha, va=va, fontsize=6.3, color=text_color, zorder=5, rotation=rot,
+                    family="DejaVu Sans Mono", weight="bold")
+            out[label] = (px, py)
+        return out
+
+    def wire(self, pts, color, lw=2.2, dot_end=False, dots=()):
+        xs, ys = zip(*pts)
+        self.ax.plot(xs, ys, color=color, lw=lw, solid_capstyle="round", solid_joinstyle="round", zorder=2)
+        for d in dots:
+            self.ax.add_patch(Circle(d, 0.9, fc=color, ec=color, zorder=6))
+
+    def gnd(self, x, y, down=True):
+        """Ground symbol = solder to the 1.2 mm brass frame."""
+        ax = self.ax
+        s = -1 if down else 1
+        ax.plot([x, x], [y, y + s * 2.2], color=W_BLACK, lw=2, zorder=2)
+        for i, half in enumerate([2.0, 1.3, 0.6]):
+            yy = y + s * (2.2 + i * 0.8)
+            ax.plot([x - half, x + half], [yy, yy], color=BRASS_DARK, lw=1.8, zorder=2)
+
+    def flag(self, x, y, text, color, side="R"):
+        """Net label: same name = connected."""
+        ax = self.ax
+        L = 1.8
+        ex = x + L if side == "R" else x - L
+        ax.plot([x, ex], [y, y], color=color, lw=2.2, zorder=2)
+        ax.text(ex + (0.5 if side == "R" else -0.5), y, text, ha="left" if side == "R" else "right", va="center",
+                fontsize=7, weight="bold", color="white", zorder=6,
+                bbox=dict(boxstyle="round,pad=0.25", fc=color, ec="none"))
+
+    def resistor(self, x, y0, y1, label):
+        ax = self.ax
+        ym = (y0 + y1) / 2
+        ax.plot([x, x], [y0, ym - 3], color=W_PURPLE, lw=2, zorder=2)
+        ax.plot([x, x], [ym + 3, y1], color=W_PURPLE, lw=2, zorder=2)
+        ax.add_patch(Rectangle((x - 1.2, ym - 3), 2.4, 6, fc="#e8d5a8", ec="#333", lw=1, zorder=3))
+        for i, c in enumerate(["#7a4a1a", "#111", "#2b9348"]):
+            ax.add_patch(Rectangle((x - 1.2, ym - 2 + i * 1.5), 2.4, 0.5, fc=c, ec="none", zorder=4))
+        ax.text(x + 2, ym, label, fontsize=7, va="center", color=INK, zorder=4)
+
+    def capacitor(self, x, y0, y1, label):
+        ax = self.ax
+        ym = (y0 + y1) / 2
+        ax.plot([x, x], [y0, ym - 0.6], color=W_PURPLE, lw=2, zorder=2)
+        ax.plot([x, x], [ym + 0.6, y1], color=W_PURPLE, lw=2, zorder=2)
+        ax.plot([x - 1.6, x + 1.6], [ym - 0.6, ym - 0.6], color="#333", lw=2, zorder=3)
+        ax.plot([x - 1.6, x + 1.6], [ym + 0.6, ym + 0.6], color="#333", lw=2, zorder=3)
+        ax.text(x + 2, ym, label, fontsize=7, va="center", color=INK, zorder=4)
+
+    def note(self, x, y, w, lines, title=None, fc="#fff8e1", ec=BRASS):
+        ax = self.ax
+        h = 3.2 * len(lines) + (5 if title else 2)
+        ax.add_patch(FancyBboxPatch((x, y - h), w, h, boxstyle="round,pad=0,rounding_size=1.2", fc=fc, ec=ec,
+                                    lw=1.2, zorder=1))
+        yy = y - 3
+        if title:
+            ax.text(x + 2, yy, title, fontsize=8.5, weight="bold", color=INK, va="center", zorder=2)
+            yy -= 4
+        for ln in lines:
+            ax.text(x + 2, yy, ln, fontsize=7, color=INK, va="center", zorder=2)
+            yy -= 3.2
+
+    def save(self, name):
+        self.fig.savefig(os.path.join(OUT, name), facecolor=BG)
+        plt.close(self.fig)
+        print("wrote", name)
+
+
+C3_LEFT = ["5", "6", "7", "8", "9", "10", "20", "21"]
+C3_RIGHT = ["5V", "GND", "3V3", "4", "3", "2", "1", "0"]
+
+
+def c3_board(s, x, y):
+    """ESP32-C3 Super Mini, top view, USB-C up. 26 x 46 units."""
+    pins = []
+    for i, n in enumerate(C3_LEFT):
+        pins.append((("G" + n), "L", 40 - i * 5))
+    for i, n in enumerate(C3_RIGHT):
+        pins.append(((n if not n.isdigit() else "G" + n), "R", 40 - i * 5))
+    p = s.module(x, y, 26, 46, "ESP32-C3", "Super Mini", PCB_BLACK, pins)
+    s.ax.add_patch(Rectangle((x + 9, y + 44), 8, 4, fc="#bbb", ec="#555", lw=1, zorder=4))
+    s.ax.text(x + 13, y + 49.5, "USB-C (code)", ha="center", fontsize=6.5, color=INK)
+    return p
+
+
+def power_chain(s, p, x0, with_amp_note=False):
+    """Battery, TP4056, slide switch and battery divider on the right of the C3."""
+    ax = s.ax
+    # TP4056 (pins on top edge)
+    tp = s.module(x0 + 22, 30, 26, 18, "TP4056", "1A charger + protection", PCB_BLUE,
+                  [("OUT+", "T", 3), ("B+", "T", 9.5), ("B-", "T", 16.5), ("OUT-", "T", 23)])
+    ax.add_patch(Rectangle((x0 + 31, 27.5), 8, 2.5, fc="#bbb", ec="#555", lw=1, zorder=4))
+    ax.text(x0 + 35, 25, "USB-C (charge)", ha="center", fontsize=6.5, color=INK)
+    # battery, horizontal, + on the left
+    bx, by = x0 + 22, 72
+    ax.add_patch(FancyBboxPatch((bx, by), 28, 10, boxstyle="round,pad=0,rounding_size=2", fc="#5c7cfa", ec="#111",
+                                lw=1.2, zorder=3))
+    ax.add_patch(Rectangle((bx - 1.4, by + 3), 1.4, 4, fc="#ccc", ec="#111", lw=1, zorder=3))
+    ax.text(bx + 14, by + 6.2, "3.7 V Li-ion 16340", ha="center", fontsize=8, weight="bold", color="white", zorder=4)
+    ax.text(bx + 14, by + 2.8, "16 x 34 mm  (~700 mAh)", ha="center", fontsize=6.5, color="white", zorder=4)
+    ax.text(bx + 2.2, by + 5, "+", fontsize=11, weight="bold", color="white", va="center", zorder=4)
+    ax.text(bx + 25, by + 5, "-", fontsize=13, weight="bold", color="white", va="center", zorder=4)
+    plus, minus = (bx - 1.4, by + 5), (bx + 28, by + 5)
+
+    # battery -> TP4056 B+/B-
+    s.wire([plus, (bx - 4, plus[1]), (bx - 4, 64), (tp["B+"][0], 64), tp["B+"]], W_RED)
+    s.wire([minus, (minus[0] + 3, minus[1]), (minus[0] + 3, 61), (tp["B-"][0], 61), tp["B-"]], W_BLACK)
+    # OUT- -> frame
+    s.wire([tp["OUT-"], (tp["OUT-"][0], 54), (tp["OUT-"][0] + 5, 54)], W_BLACK)
+    s.gnd(tp["OUT-"][0] + 5, 54)
+
+    # slide switch on the BAT_SW rail
+    sx, sy = x0 + 8, 66
+    ax.add_patch(FancyBboxPatch((sx - 4, sy - 2.2), 8, 4.4, boxstyle="round,pad=0,rounding_size=0.8", fc="#ddd",
+                                ec="#111", lw=1.1, zorder=3))
+    ax.add_patch(Rectangle((sx - 1.8, sy - 1.2), 2, 2.4, fc="#444", zorder=4))
+    ax.text(sx, sy + 3.8, "slide switch", ha="center", fontsize=6.8, color=INK)
+    # OUT+ -> switch
+    s.wire([tp["OUT+"], (tp["OUT+"][0], sy), (sx + 4, sy)], W_RED)
+    # switch -> C3 5V  (BAT_SW)
+    s.wire([(sx - 4, sy), (p["5V"][0] + 3, sy), (p["5V"][0] + 3, p["5V"][1]), p["5V"]], W_RED, dots=[(x0 + 1, sy)])
+    ax.text(x0 - 2, sy + 1.4, "BAT_SW", fontsize=6.8, color=W_RED, weight="bold", ha="center")
+
+    # divider: BAT_SW -> 1M -> G1 -> 330k -> GND, 100nF across 330k
+    dx = x0 + 1
+    s.resistor(dx, p["G1"][1], sy, "1 MΩ")
+    s.wire([p["G1"], (dx, p["G1"][1])], W_PURPLE, dots=[(dx, p["G1"][1])])
+    s.resistor(dx, 18, p["G1"][1], "330 kΩ")
+    s.capacitor(dx + 9, 18, p["G1"][1], "100 nF")
+    s.wire([(dx, p["G1"][1]), (dx + 9, p["G1"][1])], W_PURPLE, dots=[(dx + 9, p["G1"][1])])
+    s.wire([(dx, 18), (dx + 9, 18)], W_BLACK)
+    s.gnd(dx + 4.5, 18)
+    return tp, (sx, sy)
+
+
+def touch_wiring():
+    s = Sheet("COCO TOUCH  -  circuit diagram",
+              "ESP32-C3 Super Mini  +  0.96\" SSD1306 OLED  +  TTP223 touch  +  TP4056  +  16340 Li-ion", h=120)
+    p = c3_board(s, 58, 26)
+
+    oled = s.module(14, 84, 30, 16, "0.96\" OLED", "SSD1306 128x64 I2C", PCB_BLUE,
+                    [("GND", "B", 5), ("VCC", "B", 11.5), ("SCL", "B", 18.5), ("SDA", "B", 25)])
+    s.gnd(oled["GND"][0], oled["GND"][1])
+    s.wire([oled["VCC"], (oled["VCC"][0], 79)], W_ORANGE)
+    s.flag(oled["VCC"][0], 79, "3V3", W_ORANGE)
+    s.wire([oled["SCL"], (oled["SCL"][0], 66), p["G5"]], W_YELLOW)
+    s.wire([oled["SDA"], (oled["SDA"][0], 80), (96, 80), (96, p["G4"][1]), p["G4"]], W_BLUE)
+    s.flag(p["3V3"][0], p["3V3"][1], "3V3", W_ORANGE)
+
+    ttp = s.module(14, 40, 22, 15, "TTP223", "touch pad 15x11", PCB_RED,
+                   [("VCC", "B", 4), ("I/O", "B", 11), ("GND", "B", 18)])
+    s.wire([ttp["VCC"], (ttp["VCC"][0], 35)], W_ORANGE)
+    s.flag(ttp["VCC"][0], 35, "3V3", W_ORANGE, side="L")
+    s.gnd(ttp["GND"][0], ttp["GND"][1])
+    s.wire([ttp["I/O"], (ttp["I/O"][0], 17), (92, 17), (92, p["G0"][1]), p["G0"]], W_GREEN)
+
+    s.wire([p["GND"], (p["GND"][0] + 2.5, p["GND"][1])], W_BLACK)
+    s.gnd(p["GND"][0] + 2.5, p["GND"][1])
+    power_chain(s, p, 104)
+
+    s.note(118, 112, 50, ["GND symbol = solder to the 1.2 mm brass", "      frame (the whole frame is GND)",
+                          "coloured lines = 0.9 mm brass wire", "dot = joint, crossing = no joint",
+                          "same label (3V3) = same net"], title="How to read")
+    s.note(118, 22, 50, ["G0  TTP223 I/O   (HIGH = touched, wakes)", "G1  battery sense (1M / 330k)",
+                         "G4  OLED SDA        G5  OLED SCL", "G8  on-board LED   G9  BOOT button",
+                         "5V  <- BAT_SW (3.0-4.2 V from the switch)"], title="Pin map", fc="#eef6ff", ec=W_BLUE)
+    s.note(4, 13, 112, ["Switch OFF before plugging the C3's own USB-C (code), so USB 5 V and the battery never meet.",
+                        "TP4056 charges at 1 A by default: swap its PROG resistor (R3, 1.2k) for 3.3k (~350 mA) for a small 16340 cell."],
+           fc="#fff0f0", ec=W_RED)
+    s.save("coco_touch_wiring.png")
+
+
+def voice_wiring():
+    s = Sheet("COCO VOICE  -  circuit diagram",
+              "Coco Touch  +  INMP441 I2S mic  +  MAX98357A I2S amp  +  20 mm speaker   (XiaoZhi voice AI)",
+              h=124)
+    ax = s.ax
+    p = c3_board(s, 58, 26)
+
+    oled = s.module(14, 92, 30, 16, "0.96\" OLED", "SSD1306 I2C", PCB_BLUE,
+                    [("GND", "B", 5), ("VCC", "B", 11.5), ("SCL", "B", 18.5), ("SDA", "B", 25)])
+    s.gnd(oled["GND"][0], oled["GND"][1])
+    s.wire([oled["VCC"], (oled["VCC"][0], 87)], W_ORANGE)
+    s.flag(oled["VCC"][0], 87, "3V3", W_ORANGE)
+    s.wire([oled["SCL"], (oled["SCL"][0], 82), (54, 82), (54, p["G5"][1]), p["G5"]], W_YELLOW)
+    s.wire([oled["SDA"], (oled["SDA"][0], 88), (96, 88), (96, p["G4"][1]), p["G4"]], W_BLUE)
+    s.flag(p["3V3"][0], p["3V3"][1], "3V3", W_ORANGE)
+
+    # INMP441
+    mic = s.module(10, 58, 24, 18, "INMP441", "I2S mic", PCB_PURPLE,
+                   [("SD", "R", 15), ("SCK", "R", 11.5), ("WS", "R", 8), ("L/R", "R", 4.5), ("VDD", "L", 12),
+                    ("GND", "L", 5)])
+    s.wire([mic["SCK"], (46, mic["SCK"][1]), (46, p["G6"][1]), p["G6"]], W_CYAN, dots=[(46, p["G6"][1])])
+    s.wire([mic["WS"], (43, mic["WS"][1]), (43, p["G7"][1]), p["G7"]], W_CYAN, lw=1.6, dots=[(43, p["G7"][1])])
+    s.flag(mic["SD"][0], mic["SD"][1], "MIC_SD (G3)", W_PINK)
+    s.wire([mic["L/R"], (36, mic["L/R"][1]), (36, 55)], W_BLACK)
+    s.gnd(36, 55)
+    s.flag(mic["VDD"][0], mic["VDD"][1], "3V3", W_ORANGE, side="L")
+    s.wire([mic["GND"], (6, mic["GND"][1]), (6, 54)], W_BLACK)
+    s.gnd(6, 54)
+
+    # MAX98357A
+    amp = s.module(10, 19, 24, 30, "MAX98357A", "I2S 3W amp", PCB_PURPLE,
+                   [("LRC", "R", 26), ("BCLK", "R", 22), ("DIN", "R", 18), ("GAIN", "R", 14), ("SD", "R", 10),
+                    ("GND", "R", 6), ("VIN", "R", 2.5), ("OUT+", "L", 20), ("OUT-", "L", 12)])
+    s.wire([amp["BCLK"], (46, amp["BCLK"][1]), (46, p["G6"][1])], W_CYAN)
+    s.wire([amp["LRC"], (43, amp["LRC"][1]), (43, p["G7"][1])], W_CYAN, lw=1.6)
+    s.wire([amp["DIN"], (49, amp["DIN"][1]), (49, p["G10"][1]), p["G10"]], W_PINK)
+    s.wire([amp["SD"], (51, amp["SD"][1]), (51, p["G20"][1]), p["G20"]], W_GREY)
+    ax.text(36, amp["GAIN"][1], "nc (9 dB)", fontsize=6, color="#777", va="center")
+    s.wire([amp["GND"], (39, amp["GND"][1]), (39, 18)], W_BLACK)
+    s.gnd(39, 18)
+    s.flag(amp["VIN"][0], amp["VIN"][1], "BAT_SW", W_RED)
+    # speaker
+    ax.add_patch(Circle((-0.5 + 3, 32), 0.1, fc=BG))
+    spk_x, spk_y = 3.5, 32
+    ax.add_patch(Circle((spk_x, spk_y), 3.2, fc="#444", ec="#111", lw=1.2, zorder=3))
+    ax.add_patch(Circle((spk_x, spk_y), 1.5, fc="#888", ec="#111", lw=0.8, zorder=4))
+    ax.text(spk_x, spk_y - 5.5, "20 mm\nspeaker\n8Ω 1W", ha="center", va="top", fontsize=6, color=INK)
+    s.wire([amp["OUT+"], (spk_x + 2.4, amp["OUT+"][1]), (spk_x + 1.6, spk_y + 2.6)], W_RED, lw=1.6)
+    s.wire([amp["OUT-"], (spk_x + 2.4, amp["OUT-"][1]), (spk_x + 1.6, spk_y - 2.6)], W_BLACK, lw=1.6)
+
+    # TTP223 with net labels
+    s.flag(p["G3"][0], p["G3"][1], "MIC_SD (G3)", W_PINK)
+    ttp = s.module(58, 93, 18, 14, "TTP223", "touch", PCB_RED, [("VCC", "R", 11), ("I/O", "R", 7), ("GND", "R", 3)])
+    s.flag(ttp["VCC"][0], ttp["VCC"][1], "3V3", W_ORANGE)
+    s.flag(ttp["I/O"][0], ttp["I/O"][1], "TOUCH (G0)", W_GREEN)
+    s.wire([ttp["GND"], (ttp["GND"][0] + 3, ttp["GND"][1])], W_BLACK)
+    s.gnd(ttp["GND"][0] + 3, ttp["GND"][1])
+    s.flag(p["G0"][0], p["G0"][1], "TOUCH (G0)", W_GREEN)
+
+    s.wire([p["GND"], (p["GND"][0] + 2.5, p["GND"][1])], W_BLACK)
+    s.gnd(p["GND"][0] + 2.5, p["GND"][1])
+    power_chain(s, p, 104)
+
+    s.note(118, 22, 50, ["G0 touch   G1 battery   G4 SDA   G5 SCL", "G6 I2S BCLK  (mic SCK + amp BCLK)",
+                         "G7 I2S WS    (mic WS  + amp LRC)", "G3 mic SD     G10 amp DIN   G20 amp SD",
+                         "mic L/R -> GND (left channel)"], title="Pin map", fc="#eef6ff", ec=W_BLUE)
+    s.note(118, 116, 50, ["GND symbol = solder to the brass frame", "coloured = 0.9 mm brass wire",
+                          "same label = same net, dot = joint", "keep I2S wires short and apart"],
+           title="How to read")
+    s.note(4, 10, 112, ["Mic faces out of the side, speaker faces up: keep them apart.  Amp runs from BAT_SW (3.0-4.2 V), "
+                        "not 3V3.  Switch OFF before using the C3's own USB."], fc="#fff0f0", ec=W_RED)
+    s.save("coco_voice_wiring.png")
+
+
+# =========================================================== brass cases
+# Coordinates in mm: x = width (left->right), y = height (up), z = depth (front->back).
+
+def box(x0, y0, z0, w, h, d):
+    x1, y1, z1 = x0 + w, y0 + h, z0 + d
+    v = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1),
+         (x0, y1, z1)]
+    faces = [(0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (3, 2, 6, 7), (0, 3, 7, 4), (1, 2, 6, 5)]
+    return [[v[i] for i in f] for f in faces]
+
+
+class Design:
+    """One Coco case: frame bars (1.2 mm), posts (0.9 mm) and parts."""
+
+    def __init__(self, name, W, H, D):
+        self.name, self.W, self.H, self.D = name, W, H, D
+        self.bars = []    # (p0, p1, step)   step = assembly step where it appears
+        self.rings = []   # (cx, y, cz, r, step)  battery clips, horizontal circles
+        self.parts = []   # dict(kind, label, x, y, z, w, h, d, color, step, ...)
+
+    def rect_front(self, z, step=1):
+        W, H = self.W, self.H
+        pts = [(0, 0, z), (W, 0, z), (W, H, z), (0, H, z), (0, 0, z)]
+        for a, b in zip(pts, pts[1:]):
+            self.bars.append((a, b, step))
+
+    def bar(self, a, b, step):
+        self.bars.append((a, b, step))
+
+    def part(self, step, kind, label, x, y, z, w, h, d, color, **kw):
+        self.parts.append(dict(step=step, kind=kind, label=label, x=x, y=y, z=z, w=w, h=h, d=d, color=color, **kw))
+
+
+BAT_D, BAT_L = 16.0, 34.0
+
+
+def touch_design():
+    d = Design("COCO TOUCH", 52, 40, 20)
+    W, H, D = d.W, d.H, d.D
+    d.rect_front(0)
+    d.rect_front(D)
+    for x in (0, W):
+        for y in (0, H):
+            d.bar((x, y, 0), (x, y, D), 1)
+    d.bar((19.5, 0, 0), (19.5, H, 0), 1)            # front divider between battery and screen
+    d.bar((19.5, 0, D), (19.5, H, D), 1)            # back divider
+    # step 2: seats
+    for z in (6, 14):
+        d.bar((19.5, 0, z), (W, 0, z), 2)           # floor bars (TP4056 seat)
+        d.bar((19.5, H, z), (W, H, z), 2)           # top bars (TTP223 seat)
+    d.rings += [(10, 7, 10, BAT_D / 2 + 0.6, 2), (10, 33, 10, BAT_D / 2 + 0.6, 2)]
+    for y in (7, 33):                                # ring tabs to the frame
+        d.bar((10, y, 1.4), (10, y, 0), 2)
+        d.bar((1.4, y, 10), (0, y, 10), 2)
+    # parts
+    d.part(3, "box", "TP4056", 31, 0.6, 3.5, 17, 3.6, 12, PCB_BLUE, port=("x+", "USB-C charge"))
+    d.part(3, "box", "switch", W - 0.6, 10, 5, 3.6, 4.0, 8.6, "#cfcfcf", knob=True)
+    d.part(4, "box", "ESP32-C3", 24, 19, D - 4.2, 22.5, 18, 3.6, PCB_BLACK, port=("x+", "USB-C code"))
+    d.part(5, "oled", "OLED", 21.5, 6, 0.6, 27.3, 27.8, 4.1, PCB_BLUE)
+    d.part(6, "box", "TTP223", 27, H + 0.6, 4.5, 15, 1.6, 11, PCB_RED, pad=True)
+    d.part(6, "battery", "16340", 10 - BAT_D / 2, 3, 10 - BAT_D / 2, BAT_D, BAT_L, BAT_D, "#5c7cfa")
+    d.steps = [
+        ("Bend the cage", "Two 52 x 40 mm rectangles + a 40 mm divider each (1.2 mm). Join with four 20 mm struts."),
+        ("Seats + battery clips", "Floor and top bars at z = 6 / 14 mm. Two 17 mm rings hold the 16340 cell."),
+        ("Charger + switch", "TP4056 on the floor bars: B- and OUT- pads straight onto the frame (GND). Switch on the right."),
+        ("ESP32-C3 on the back", "GND pad onto the back bar. 5V to the switch with 0.9 mm wire, USB-C to the right."),
+        ("OLED on the front", "Four 0.9 mm posts through its holes. SDA/SCL/VCC up the back to G4/G5/3V3."),
+        ("Touch pad + battery", "TTP223 on the top bars (I/O -> G0). Battery in, check + / -, switch on, test."),
+    ]
+    return d
+
+
+def voice_design():
+    d = Design("COCO VOICE", 56, 44, 30)
+    W, H, D = d.W, d.H, d.D
+    d.rect_front(0)
+    d.rect_front(D)
+    for x in (0, W):
+        for y in (0, H):
+            d.bar((x, y, 0), (x, y, D), 1)
+    d.bar((19.5, 0, 0), (19.5, H, 0), 1)
+    d.bar((19.5, 0, D), (19.5, H, D), 1)
+    for z in (7, 20):
+        d.bar((19.5, 0, z), (W, 0, z), 2)
+    d.bar((0, H, 13), (19.5, H, 13), 2)              # TTP223 seat over the battery
+    d.bar((0, H, 3), (19.5, H, 3), 2)
+    for z in (12, 16, 20, 24):                       # speaker grille (0.9 mm, on top)
+        d.bar((22, H, z), (W, H, z), 2)
+    d.rings += [(10, 8, 10, BAT_D / 2 + 0.6, 2), (10, 34, 10, BAT_D / 2 + 0.6, 2)]
+    for y in (8, 34):
+        d.bar((10, y, 1.4), (10, y, 0), 2)
+        d.bar((1.4, y, 10), (0, y, 10), 2)
+    d.part(3, "box", "TP4056", 42, 0.6, 11.5, 12, 3.6, 17, PCB_BLUE, port=("z+", "USB-C charge"))
+    d.part(3, "box", "MAX98357A", 21, 0.6, 3.5, 19.3, 3.0, 17.8, PCB_PURPLE)
+    d.part(3, "box", "switch", -3.0, 10, 21, 3.6, 4.0, 8.6, "#cfcfcf", knob=True)
+    d.part(4, "box", "ESP32-C3", 26, 14, D - 4.2, 22.5, 18, 3.6, PCB_BLACK, port=("x+", "USB-C code"))
+    d.part(4, "box", "INMP441", W - 2.2, 20, 5, 1.6, 14, 14, PCB_PURPLE, mic=True)
+    d.part(5, "oled", "OLED", 22, 8, 0.6, 27.3, 27.8, 4.1, PCB_BLUE)
+    d.part(5, "speaker", "speaker", 39 - 10, H - 5.2, 18 - 10, 20, 4.6, 20, "#444")
+    d.part(6, "box", "TTP223", 2.5, H + 0.6, 2.5, 15, 1.6, 11, PCB_RED, pad=True)
+    d.part(6, "battery", "16340", 10 - BAT_D / 2, 4, 10 - BAT_D / 2, BAT_D, BAT_L, BAT_D, "#5c7cfa")
+    d.steps = [
+        ("Bend the cage", "Two 56 x 44 mm rectangles + a 44 mm divider each (1.2 mm). Join with four 30 mm struts."),
+        ("Seats, clips, grille", "Floor bars, TTP223 seat over the battery, four 0.9 mm grille bars over the speaker."),
+        ("Charger, amp, switch", "TP4056 (USB-C to the back) and MAX98357A on the floor bars, GND pads to the frame."),
+        ("ESP32-C3 + mic", "C3 on the back bar. INMP441 on the right side, sound hole facing OUT, away from the speaker."),
+        ("OLED + speaker", "OLED on four posts. Speaker under the grille, facing up; OUT+/OUT- from the amp."),
+        ("Touch pad + battery", "TTP223 on top of the battery bay. Battery in, check polarity, switch on, flash, test."),
+    ]
+    return d
+
+
+def cylinder_surface(cx, y0, cz, r, L, n=28):
+    th = np.linspace(0, 2 * np.pi, n)
+    yy = np.array([y0, y0 + L])
+    T, Y = np.meshgrid(th, yy)
+    return cx + r * np.cos(T), Y, cz + r * np.sin(T)
+
+
+def draw3d(ax, d, upto=99, highlight=None, show_labels=True):
+    """Draws design d into a 3D axis. Plot axes: X = width, Y = depth, Z = height."""
+    ax.set_proj_type("ortho")
+    m = 6
+    ax.set_xlim(-m, d.W + m)
+    ax.set_ylim(-m, d.D + m)
+    ax.set_zlim(-m, d.H + m)
+    ax.set_box_aspect((d.W + 2 * m, d.D + 2 * m, d.H + 2 * m))
+    ax.view_init(elev=22, azim=-58)
+    ax.axis("off")
+    ax.computed_zorder = False  # draw in our own back-to-front order
+
+    def P(p):
+        return (p[0], p[2], p[1])
+
+    # parts, back (large z) to front
+    for zo, pt in enumerate(sorted(d.parts, key=lambda q: -(q["z"] + q["d"] / 2)), start=10):
+        if pt["step"] > upto:
+            continue
+        hl = highlight is not None and pt["step"] == highlight
+        alpha = 0.95 if (highlight is None or hl) else 0.35
+        x, y, z, w, h, dd = pt["x"], pt["y"], pt["z"], pt["w"], pt["h"], pt["d"]
+        if pt["kind"] == "battery":
+            r = w / 2
+            X, Y, Z = cylinder_surface(x + r, y, z + r, r, h)
+            ax.plot_surface(X, Z, Y, color=pt["color"], alpha=alpha, linewidth=0, shade=True, zorder=zo)
+            continue
+        if pt["kind"] == "speaker":
+            r = w / 2
+            X, Y, Z = cylinder_surface(x + r, y, z + r, r, h)
+            ax.plot_surface(X, Z, Y, color="#555", alpha=alpha, linewidth=0, shade=True, zorder=zo)
+            th = np.linspace(0, 2 * np.pi, 40)
+            ax.plot(x + r + r * 0.55 * np.cos(th), z + r + r * 0.55 * np.sin(th), np.full(40, y + h), color="#bbb",
+                    lw=1, alpha=alpha, zorder=zo)
+            continue
+        faces = [[P(v) for v in f] for f in box(x, y, z, w, h, dd)]
+        pc = Poly3DCollection(faces, facecolor=pt["color"], edgecolor="#111", linewidths=0.4, alpha=alpha, zorder=zo)
+        ax.add_collection3d(pc)
+        if pt["kind"] == "oled":
+            # glass + Coco's eyes on the front face
+            g = [P(v) for v in [(x + 1.5, y + 6, z - 0.05), (x + w - 1.5, y + 6, z - 0.05),
+                                 (x + w - 1.5, y + h - 4, z - 0.05), (x + 1.5, y + h - 4, z - 0.05)]]
+            ax.add_collection3d(Poly3DCollection([g], facecolor="#081218", edgecolor="#000", alpha=alpha,
+                                                    zorder=zo + 0.3))
+            for ex in (x + w * 0.3, x + w * 0.7):
+                e = [P(v) for v in [(ex - 3.6, y + 11, z - 0.1), (ex + 3.6, y + 11, z - 0.1),
+                                     (ex + 3.6, y + 20, z - 0.1), (ex - 3.6, y + 20, z - 0.1)]]
+                ax.add_collection3d(Poly3DCollection([e], facecolor="#28e1eb", edgecolor="none", alpha=alpha,
+                                                        zorder=zo + 0.6))
+        if pt.get("pad"):
+            th = np.linspace(0, 2 * np.pi, 30)
+            ax.plot(x + w / 2 + 3.5 * np.cos(th), z + dd / 2 + 3.5 * np.sin(th), np.full(30, y + h + 0.05),
+                    color="#ffd6d6", lw=1.2, alpha=alpha, zorder=zo + 0.5)
+
+    # frame: bars on the back face go behind the parts, the rest in front
+    hl1 = highlight in (None, 1)
+    hl2 = highlight in (None, 2)
+    groups = {}
+    for a, b, step in d.bars:
+        if step > upto:
+            continue
+        back = a[2] == d.D and b[2] == d.D
+        groups.setdefault((step == 1, back), []).append([P(a), P(b)])
+    for (main, back), segs in groups.items():
+        on = hl1 if main else hl2
+        lw = (3.2 if on else 1.8) if main else (2.4 if on else 1.4)
+        ax.add_collection3d(Line3DCollection(segs, colors=BRASS, linewidths=lw, alpha=1 if on else 0.6,
+                                             zorder=1 if back else 100))
+    for cx, y, cz, r, step in d.rings:
+        if step > upto:
+            continue
+        th = np.linspace(0, 2 * np.pi, 48)
+        ax.plot(cx + r * np.cos(th), cz + r * np.sin(th), np.full(48, y), color=BRASS, lw=2.2 if hl2 else 1.3,
+                alpha=1 if hl2 else 0.6, zorder=100)
+
+    if show_labels:
+        for pt in d.parts:
+            if pt["step"] > upto or (highlight is not None and pt["step"] != highlight):
+                continue
+            x = pt["x"] + pt["w"] / 2
+            y = pt["y"] + pt["h"] + 1.5
+            z = pt["z"] + pt["d"] / 2
+            ax.text(x, z, y, pt["label"], fontsize=7.5, weight="bold", color=INK, ha="center", zorder=50,
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="#999", lw=0.5, alpha=0.85))
+            ax.texts[-1].set_zorder(200)
+
+
+def dim(ax, a, b, off, text, vertical=False):
+    """Dimension line between a and b (2D), offset perpendicular by off."""
+    (x0, y0), (x1, y1) = a, b
+    if vertical:
+        xs = [x0 + off, x1 + off]
+        ax.annotate("", xy=(xs[1], y1), xytext=(xs[0], y0),
+                    arrowprops=dict(arrowstyle="<->", color="#c92a2a", lw=1))
+        ax.plot([x0, x0 + off], [y0, y0], color="#c92a2a", lw=0.5, ls=":")
+        ax.plot([x1, x1 + off], [y1, y1], color="#c92a2a", lw=0.5, ls=":")
+        ax.text(xs[0] + (1.2 if off > 0 else -1.2), (y0 + y1) / 2, text, rotation=90, ha="center", va="center",
+                fontsize=8, color="#c92a2a", backgroundcolor=BG)
+    else:
+        ys = [y0 + off, y1 + off]
+        ax.annotate("", xy=(x1, ys[1]), xytext=(x0, ys[0]),
+                    arrowprops=dict(arrowstyle="<->", color="#c92a2a", lw=1))
+        ax.plot([x0, x0], [y0, y0 + off], color="#c92a2a", lw=0.5, ls=":")
+        ax.plot([x1, x1], [y1, y1 + off], color="#c92a2a", lw=0.5, ls=":")
+        ax.text((x0 + x1) / 2, ys[0] + (1.4 if off > 0 else -1.6), text, ha="center", va="center", fontsize=8,
+                color="#c92a2a", backgroundcolor=BG)
+
+
+def view2d(ax, d, view, title):
+    """Orthographic view. view: 'front' (x,y), 'top' (x,z), 'side' (z,y) from the right."""
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_title(title, fontsize=11, weight="bold", color=INK, pad=4)
+
+    def proj(p):
+        x, y, z = p
+        return {"front": (x, y), "top": (x, d.D - z), "side": (z, y)}[view]
+
+    # parts first (behind the frame lines)
+    order = sorted(d.parts, key=lambda pt: {"front": -pt["z"], "top": pt["y"], "side": pt["x"]}[view])
+    ax.text(0, -11, "dashed = behind other parts in this view", fontsize=6.5, color="#777")
+    for pt in order:
+        x, y, z, w, h, dd = pt["x"], pt["y"], pt["z"], pt["w"], pt["h"], pt["d"]
+        corners = [proj((x, y, z)), proj((x + w, y + h, z + dd))]
+        (u0, v0), (u1, v1) = corners
+        u0, u1 = sorted((u0, u1))
+        v0, v1 = sorted((v0, v1))
+        near = {"front": z < 6, "top": y + h > d.H - 6, "side": x + w > d.W - 6}[view]
+        round_ = pt["kind"] in ("battery", "speaker") and view == "top"
+        if not near:
+            # hidden behind nearer parts: dashed outline, small grey label
+            if round_:
+                ax.add_patch(Circle(((u0 + u1) / 2, (v0 + v1) / 2), w / 2, fc="none", ec="#777", lw=0.8, ls="--"))
+            else:
+                ax.add_patch(Rectangle((u0, v0), u1 - u0, v1 - v0, fc="none", ec="#777", lw=0.8, ls="--"))
+            ax.text(u1 - 0.6, v0 + 0.6, pt["label"], ha="right", va="bottom", fontsize=5.2, color="#666")
+            continue
+        if round_:
+            ax.add_patch(Circle(((u0 + u1) / 2, (v0 + v1) / 2), w / 2, fc=pt["color"], ec="#111", lw=0.8, alpha=0.7))
+        else:
+            ax.add_patch(FancyBboxPatch((u0, v0), u1 - u0, v1 - v0, boxstyle="round,pad=0,rounding_size=0.8",
+                                        fc=pt["color"], ec="#111", lw=0.8, alpha=0.8))
+        if pt["kind"] == "oled" and view == "front":
+            ax.add_patch(Rectangle((u0 + 1.5, v0 + 6), (u1 - u0) - 3, (v1 - v0) - 10, fc="#081218", ec="none"))
+            for ex in (u0 + (u1 - u0) * 0.3, u0 + (u1 - u0) * 0.7):
+                ax.add_patch(FancyBboxPatch((ex - 3.6, v0 + 11), 7.2, 9, boxstyle="round,pad=0,rounding_size=1.5",
+                                            fc="#28e1eb", ec="none"))
+            continue
+        if (u1 - u0) > 6 and (v1 - v0) > 3:
+            ax.text((u0 + u1) / 2, (v0 + v1) / 2, pt["label"], ha="center", va="center", fontsize=6.5,
+                    color="white", weight="bold", rotation=90 if (v1 - v0) > 2.2 * (u1 - u0) else 0)
+    # frame
+    for a, b, step in d.bars:
+        (u0, v0), (u1, v1) = proj(a), proj(b)
+        lw = 3.0 if step == 1 else 2.0
+        ax.plot([u0, u1], [v0, v1], color=BRASS, lw=lw, solid_capstyle="round", zorder=5)
+    for cx, y, cz, r, step in d.rings:
+        if view == "top":
+            ax.add_patch(Circle((cx, d.D - cz), r, fc="none", ec=BRASS, lw=2, zorder=5))
+        elif view == "front":
+            ax.plot([cx - r, cx + r], [y, y], color=BRASS, lw=2, zorder=5)
+        else:
+            ax.plot([cz - r, cz + r], [y, y], color=BRASS, lw=2, zorder=5)
+
+    U = {"front": d.W, "top": d.W, "side": d.D}[view]
+    V = {"front": d.H, "top": d.D, "side": d.H}[view]
+    dim(ax, (0, 0), (U, 0), -6, f"{U:g} mm")
+    dim(ax, (U, 0), (U, V), 6, f"{V:g} mm", vertical=True)
+    if view == "front":
+        dim(ax, (0, V), (19.5, V), 5, "19.5")
+    ax.set_xlim(-8, U + 14)
+    ax.set_ylim(-12, V + 10)
+
+
+def case_sheet(d, fname):
+    fig = plt.figure(figsize=(16, 10.4), dpi=130, facecolor=BG)
+    fig.text(0.02, 0.965, f"{d.name}  -  brass wire case", fontsize=20, weight="bold", color=INK)
+    fig.text(0.02, 0.935, f"Outer frame {d.W} x {d.H} x {d.D} mm (wire centre lines).  "
+             "Thick gold = 1.2 mm brass frame (also GND).  Thin gold = 1.2 mm seats / 0.9 mm grille.  "
+             "Test-fit your real parts before soldering.", fontsize=10, color="#555")
+    ax3 = fig.add_axes([0.0, 0.33, 0.5, 0.6], projection="3d", facecolor=BG)
+    draw3d(ax3, d)
+    axf = fig.add_axes([0.5, 0.48, 0.25, 0.42])
+    view2d(axf, d, "front", "FRONT")
+    axs = fig.add_axes([0.75, 0.48, 0.24, 0.42])
+    view2d(axs, d, "side", "RIGHT SIDE")
+    axt = fig.add_axes([0.5, 0.05, 0.25, 0.4])
+    view2d(axt, d, "top", "TOP")
+
+    # cut list
+    W, H, D = d.W, d.H, d.D
+    total_12 = 2 * (2 * W + 2 * H) + 4 * D + 2 * H
+    seats = sum(np.linalg.norm(np.subtract(b, a)) for a, b, s in d.bars if s == 2)
+    rings = sum(2 * np.pi * r for *_, r, s in d.rings)
+    lines = [
+        f"1.2 mm brass  frame:  2 x rectangle {W} x {H} (bend 4 x 90°, one joint)",
+        f"                       2 x divider {H} mm  +  4 x strut {D} mm",
+        f"                       ~{total_12 / 10:.0f} cm in total",
+        f"seats / tabs / grille ~{seats / 10:.0f} cm   battery rings 2 x Ø{2 * d.rings[0][3]:.0f} mm (~{rings / 10:.0f} cm)",
+        "0.9 mm brass  signal wires: ~30-40 cm, bend at 90°, keep >= 2 mm",
+        "                       from the frame and each other; heat-shrink where they cross",
+        "Solder: leaded 0.6-0.8 mm + flux; tin every joint, clamp in a jig, 1-2 s per joint",
+        "Battery wrap stays ON - the 16340 can is negative and must not touch the frame bare",
+    ]
+    ax = fig.add_axes([0.02, 0.03, 0.46, 0.28])
+    ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.03", fc="#fff8e1", ec=BRASS,
+                                transform=ax.transAxes))
+    ax.text(0.03, 0.9, "Cut list + tips", fontsize=12, weight="bold", color=INK, transform=ax.transAxes)
+    for i, ln in enumerate(lines):
+        ax.text(0.03, 0.78 - i * 0.095, ln, fontsize=8.6, color=INK, family="DejaVu Sans Mono",
+                transform=ax.transAxes)
+
+    # parts placement table
+    ax = fig.add_axes([0.76, 0.05, 0.23, 0.4])
+    ax.axis("off")
+    ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.03", fc="#eef6ff", ec=W_BLUE,
+                                transform=ax.transAxes))
+    ax.text(0.05, 0.93, "Where each part sits", fontsize=12, weight="bold", color=INK, transform=ax.transAxes)
+    where = {"OLED": "front, right of the divider", "16340": "front-left bay, in 2 rings",
+             "ESP32-C3": "back wall, USB-C to the right", "TP4056": "on the floor bars",
+             "MAX98357A": "floor, front", "switch": "side wall, knob out", "TTP223": "on top = Coco's head",
+             "INMP441": "right wall, hole facing out", "speaker": "under the top grille, up"}
+    y = 0.83
+    for pt in d.parts:
+        ax.text(0.05, y, pt["label"], fontsize=9, weight="bold", color=INK, transform=ax.transAxes)
+        ax.text(0.40, y, where.get(pt["label"], ""), fontsize=8.2, color="#333", transform=ax.transAxes)
+        y -= 0.085
+    fig.savefig(os.path.join(OUT, fname), facecolor=BG)
+    plt.close(fig)
+    print("wrote", fname)
+
+
+def assembly_sheet(d, fname):
+    fig = plt.figure(figsize=(16, 11), dpi=120, facecolor=BG)
+    fig.text(0.02, 0.965, f"{d.name}  -  assembly steps", fontsize=20, weight="bold", color=INK)
+    fig.text(0.02, 0.937, "New parts in each step are solid, earlier ones faded.  Follow the circuit diagram for "
+             "every wire.  Insert the battery last.", fontsize=10.5, color="#555")
+    for i, (title, text) in enumerate(d.steps):
+        r, c = divmod(i, 3)
+        x0, y0 = 0.01 + c * 0.33, 0.49 - r * 0.46
+        ax = fig.add_axes([x0, y0 + 0.07, 0.32, 0.36], projection="3d", facecolor=BG)
+        draw3d(ax, d, upto=i + 1, highlight=i + 1)
+        fig.text(x0 + 0.01, y0 + 0.415, f"{i + 1}", fontsize=22, weight="bold", color="white",
+                 bbox=dict(boxstyle="circle,pad=0.25", fc=BRASS, ec="none"))
+        fig.text(x0 + 0.045, y0 + 0.42, title, fontsize=13, weight="bold", color=INK)
+        words, line, out = text.split(), "", []
+        for w in words:
+            if len(line) + len(w) > 58:
+                out.append(line)
+                line = w
+            else:
+                line = (line + " " + w).strip()
+        out.append(line)
+        fig.text(x0 + 0.01, y0 + 0.055, "\n".join(out), fontsize=9.5, color="#333", va="top")
+    fig.savefig(os.path.join(OUT, fname), facecolor=BG)
+    plt.close(fig)
+    print("wrote", fname)
+
+
+def overview(dt, dv):
+    fig = plt.figure(figsize=(16, 8.4), dpi=120, facecolor=BG)
+    fig.text(0.02, 0.94, "COCO  -  brass desk buddy, two versions", fontsize=22, weight="bold", color=INK)
+    for i, (d, lines) in enumerate([
+        (dt, ["ESP32-C3 Super Mini, 0.96\" OLED, TTP223 touch", "faces + animations, clock, weather, status",
+              "tap / double-tap / long-press reactions", f"{dt.W} x {dt.H} x {dt.D} mm, no speaker, ~1 day per charge"]),
+        (dv, ["+ INMP441 mic, MAX98357A amp, 20 mm speaker", "talks: XiaoZhi voice AI (\"Hi ESP\")",
+              "same faces, emotions follow the answer", f"{dv.W} x {dv.H} x {dv.D} mm, ~3-5 h talking per charge"])]):
+        ax = fig.add_axes([0.0 + i * 0.5, 0.18, 0.5, 0.72], projection="3d", facecolor=BG)
+        draw3d(ax, d, show_labels=False)
+        fig.text(0.05 + i * 0.5, 0.86, d.name, fontsize=16, weight="bold", color=BRASS_DARK)
+        for k, ln in enumerate(lines):
+            fig.text(0.05 + i * 0.5, 0.15 - k * 0.035, ln, fontsize=11, color=INK)
+    fig.savefig(os.path.join(OUT, "coco_overview.png"), facecolor=BG)
+    plt.close(fig)
+    print("wrote coco_overview.png")
+
+
+def bending_template(designs):
+    """1:1 A4 template: lay the wire on the lines while bending."""
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    path = os.path.join(OUT, "coco_bending_template.pdf")
+    with PdfPages(path) as pdf:
+        for d in designs:
+            fig = plt.figure(figsize=(210 / 25.4, 297 / 25.4), facecolor="white")
+            ax = fig.add_axes([0, 0, 1, 1])
+            ax.set_xlim(0, 210)
+            ax.set_ylim(0, 297)
+            ax.axis("off")
+            ax.text(15, 282, f"{d.name} - 1:1 bending template", fontsize=16, weight="bold")
+            ax.text(15, 275, "Print at 100 % (no 'fit to page'). Check: the 50 mm ruler below must measure 50 mm.",
+                    fontsize=8.5)
+            ax.plot([15, 65], [268, 268], color="k", lw=1.5)
+            for x in range(15, 66, 10):
+                ax.plot([x, x], [266, 270], color="k", lw=1)
+            ax.text(40, 262, "50 mm", ha="center", fontsize=8)
+
+            def frame(x0, y0, label, divider=True):
+                ax.add_patch(Rectangle((x0, y0), d.W, d.H, fc="none", ec=BRASS, lw=3))
+                if divider:
+                    ax.plot([x0 + 19.5, x0 + 19.5], [y0, y0 + d.H], color=BRASS, lw=2.4)
+                for cx, cy in [(x0, y0), (x0 + d.W, y0), (x0 + d.W, y0 + d.H), (x0, y0 + d.H)]:
+                    ax.add_patch(Circle((cx, cy), 1.2, fc="#c92a2a", ec="none"))
+                ax.text(x0, y0 + d.H + 3, label, fontsize=9, weight="bold")
+                ax.text(x0 + d.W / 2, y0 - 5, f"{d.W} mm", ha="center", fontsize=8)
+                ax.text(x0 + d.W + 3, y0 + d.H / 2, f"{d.H} mm", rotation=90, va="center", fontsize=8)
+
+            frame(20, 190, "FRONT rectangle + divider (1.2 mm)")
+            frame(110, 190, "BACK rectangle + divider (1.2 mm)")
+            ax.text(20, 178, "Red dots = 90° bends. Start a rectangle in the middle of the bottom side so the "
+                    "joint is hidden.", fontsize=8)
+            # struts and straight pieces at 1:1
+            y = 165
+            pieces = [(d.D, f"strut {d.D} mm  x4 (1.2 mm)"), (d.H, f"divider {d.H} mm  x2 (1.2 mm)"),
+                      (d.W - 19.5, f"seat / floor bar {d.W - 19.5:g} mm (see case drawing)")]
+            for L, label in pieces:
+                ax.plot([20, 20 + L], [y, y], color=BRASS, lw=3)
+                ax.plot([20, 20], [y - 2, y + 2], color="k", lw=1)
+                ax.plot([20 + L, 20 + L], [y - 2, y + 2], color="k", lw=1)
+                ax.text(25 + L, y, label, va="center", fontsize=8.5)
+                y -= 10
+            # battery ring former
+            r = d.rings[0][3]
+            ax.add_patch(Circle((40, y - 18), r, fc="none", ec=BRASS, lw=3))
+            ax.add_patch(Circle((40, y - 18), BAT_D / 2, fc="#5c7cfa", ec="none", alpha=0.25))
+            ax.text(62, y - 18, f"battery ring Ø{2 * r:.1f} mm x2 - wrap the wire around a 16 mm\n"
+                    "rod (a spare 16340 in its wrap works) and leave a 3 mm tab.", va="center", fontsize=8.5)
+            # OLED hole posts
+            ax.add_patch(Rectangle((20, y - 75), 27.3, 27.8, fc="none", ec=PCB_BLUE, lw=1.5, ls="--"))
+            for hx in (2, 25.3):
+                for hy in (2, 25.8):
+                    ax.add_patch(Circle((20 + hx, y - 75 + hy), 1.0, fc=PCB_BLUE))
+            ax.text(52, y - 61, "OLED outline 27.3 x 27.8 mm with its 4 mounting holes.\n"
+                    "Measure your module: hole spacing varies (about 23 x 24 mm).\n"
+                    "Posts: 0.9 mm wire through each hole, soldered to the front frame.", va="center", fontsize=8.5)
+            pdf.savefig(fig)
+            plt.close(fig)
+    print("wrote coco_bending_template.pdf")
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    touch_wiring()
+    voice_wiring()
+    dt, dv = touch_design(), voice_design()
+    case_sheet(dt, "coco_touch_case.png")
+    case_sheet(dv, "coco_voice_case.png")
+    assembly_sheet(dt, "coco_touch_assembly.png")
+    assembly_sheet(dv, "coco_voice_assembly.png")
+    overview(dt, dv)
+    bending_template([dt, dv])
+
+
+if __name__ == "__main__":
+    main()
