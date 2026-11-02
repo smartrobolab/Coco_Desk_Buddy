@@ -1,6 +1,6 @@
 // PC renderer for Coco's faces and cards - writes raw 1024-byte frames to stdout.
 //   render face <name> <fps> <duration_ms>
-//   render card <boot|clock|weather-<sky>|weather-night|status|hold|noweather> <fps> <duration_ms>
+//   render card <boot|wifi|wifi2|wififail|clock|weather-<sky>|weather-night|status|hold|noweather> <fps> <duration_ms>
 //   render test        (Open-Meteo parser self-test)
 // sim/make_screens.py turns the frames into PNG / GIF previews.
 #include <stdio.h>
@@ -38,6 +38,23 @@ static int selfTest() {
   check(!w.isDay, "night");
   check(!coco::parseOpenMeteo("{\"error\":true,\"reason\":\"bad\"}", w), "error body rejected");
   check(coco::skyFromWmo(0) == coco::Sky::Clear && coco::skyFromWmo(95) == coco::Sky::Thunder, "wmo mapping");
+  check(!w.hasOffset, "no utc offset in this sample");
+  coco::Weather w2;
+  check(coco::parseOpenMeteo("{\"utc_offset_seconds\":19800,\"current\":{\"temperature_2m\":30,\"weather_code\":0}}", w2) &&
+            w2.hasOffset && w2.utcOffsetSec == 19800, "utc offset 19800 (India)");
+  char tz[24];
+  coco::posixTz(32400, tz, sizeof(tz));
+  check(strcmp(tz, "<+0900>-9:00") == 0, "posix tz Japan");
+  coco::posixTz(19800, tz, sizeof(tz));
+  check(strcmp(tz, "<+0530>-5:30") == 0, "posix tz India");
+  coco::posixTz(-14400, tz, sizeof(tz));
+  check(strcmp(tz, "<-0400>+4:00") == 0, "posix tz New York (summer)");
+  float lat = 0, lon = 0;
+  char name[32];
+  check(coco::parseGeocode("{\"results\":[{\"id\":1850147,\"name\":\"Tokyo\",\"latitude\":35.6895,"
+                           "\"longitude\":139.69171,\"timezone\":\"Asia/Tokyo\"}]}", lat, lon, name, sizeof(name)) &&
+            lat > 35.68f && lon > 139.69f && strcmp(name, "Tokyo") == 0, "geocode Tokyo");
+  check(!coco::parseGeocode("{\"generationtime_ms\":0.5}", lat, lon, name, sizeof(name)), "geocode: city not found");
   return fails ? 1 : 0;
 }
 
@@ -76,6 +93,12 @@ int main(int argc, char** argv) {
       drawFace(c, f, ctx);
     } else if (strcmp(name, "boot") == 0) {
       drawBoot(c, t, "v1.0");
+    } else if (strcmp(name, "wifi") == 0) {
+      drawWifiSetup(c, "Coco-1A2B", "http://192.168.4.1", false, t);
+    } else if (strcmp(name, "wifi2") == 0) {
+      drawWifiSetup(c, "Coco-1A2B", "http://192.168.4.1", true, t);
+    } else if (strcmp(name, "wififail") == 0) {
+      drawNotice(c, "Wi-Fi", "Can't join HomeNet. Hold my head 10 s to fix it.", true);
     } else if (strcmp(name, "clock") == 0) {
       drawClock(c, 10, 42, "Mon 02 Nov", t);
     } else if (strncmp(name, "weather-", 8) == 0) {
@@ -98,7 +121,7 @@ int main(int argc, char** argv) {
       FaceCtx ctx;
       ctx.t = 0;
       drawFace(c, Face::Love, ctx);
-      coco::drawHold(c, 2000 + t);
+      coco::drawHold(c, 2000 + t * 6);
     } else {
       fprintf(stderr, "unknown card %s\n", name);
       return 1;

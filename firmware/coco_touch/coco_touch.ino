@@ -10,6 +10,8 @@
                    double-tap = back to the face)
     long press     Love (petting) while you hold
     hold 5 s       deep sleep, screen off (touch to wake)
+    hold 10 s      Wi-Fi setup: Coco shows a QR code, join its hotspot with
+                   your phone, pick your Wi-Fi, type the password and city
     poke a lot     Angry (6+ quick taps), then Crying (10+)
 
   When you leave it alone it eats cookies, plays with a ball, dances, sings,
@@ -17,28 +19,34 @@
   after DEEP_SLEEP_AFTER_MIN more it powers down until you touch it.
 
   Wi-Fi is on only for a few seconds every WEATHER_REFRESH_MIN minutes to sync
-  the time (NTP) and fetch the weather (open-meteo.com, no API key).
+  the time (NTP) and fetch the weather (open-meteo.com, no API key). The time
+  zone comes from the weather location, so there is nothing to set.
 
-  Settings: coco_config.h.   Wiring: docs/images/coco_touch_wiring.png
+  First boot (nothing saved yet) starts the phone setup by itself. Defaults and
+  pins: coco_config.h.   Wiring: coco_touch/images/coco_touch_wiring.png
   Board package: "esp32" by Espressif 3.x, board "ESP32C3 Dev Module",
-  USB CDC On Boot "Enabled". No extra libraries.
+  USB CDC On Boot "Enabled", Partition Scheme "Huge APP (3MB No OTA/1MB SPIFFS)"
+  (the default 1.2 MB app slot is too small). No extra libraries.
 */
 
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <esp_sleep.h>
 #include <time.h>
 
 #include "coco_cards.h"
 #include "coco_config.h"
 #include "coco_oled.h"
+#include "coco_portal.h"
+#include "coco_settings.h"
 #include "kibo_faces.h"
 #include "kibo_screens.h"
 
 using namespace kibo;
 
-static const char* const kVersion = "v1.0";
+static const char* const kVersion = "v1.1";
 
 // ------------------------------------------------------------------ timings
 constexpr uint32_t kFrameMs = 40;          // 25 fps
@@ -46,6 +54,7 @@ constexpr uint32_t kBlinkMs = 120;         // blink between two faces
 constexpr uint32_t kDoubleTapMs = 300;     // second tap within this -> double-tap
 constexpr uint32_t kLongPressMs = 800;     // -> Love
 constexpr uint32_t kHoldSleepMs = 5000;    // release after this -> deep sleep
+constexpr uint32_t kHoldSetupMs = 10000;   // release after this -> Wi-Fi setup
 constexpr uint32_t kTapFaceMs = 6000;      // how long a tapped face stays
 constexpr uint32_t kCardIdleMs = 12000;    // cards go back to the face after this
 constexpr uint32_t kNapMs = NAP_AFTER_MIN * 60000UL;
@@ -63,11 +72,14 @@ struct RtcSave {
 };
 RTC_DATA_ATTR RtcSave rtcSave;
 constexpr uint32_t kRtcMagic = 0xC0C0C0C0;
+RTC_NOINIT_ATTR uint32_t setupRequest;      // survives ESP.restart(): start in Wi-Fi setup
+constexpr uint32_t kSetupMagic = 0x5E7A9C0C;
 
 portMUX_TYPE netMux = portMUX_INITIALIZER_UNLOCKED;
 coco::Weather weather;          // guarded by netMux
 time_t weatherAt = 0;           // guarded by netMux
 char wifiText[16] = "off";      // guarded by netMux
+volatile bool wifiFailed = false;  // set by the net task, shown once as a notice
 
 // ----------------------------------------------------------------- display
 CocoOled oled;
@@ -98,6 +110,9 @@ enum class Card : uint8_t { Clock, Weather, Status, Count };
 
 uint32_t bootAt = 0;
 bool booting = true;
+bool setupMode = false;
+uint32_t setupSince = 0;
+uint32_t noticeUntil = 0;
 bool showingCards = false;
 Card card = Card::Clock;
 uint32_t cardSince = 0, cardUntil = 0;
@@ -244,13 +259,68 @@ void setWifiText(const char* s) {
   portEXIT_CRITICAL(&netMux);
 }
 
+void applyTz(int utcOffsetSec) {
+  char tz[24];
+  coco::posixTz(utcOffsetSec, tz, sizeof(tz));
+  if (settings.tz == tz) return;
+  settings.tz = tz;
+  setenv("TZ", tz, 1);
+  tzset();
+  saveTz(tz);
+  Serial.printf("time zone: %s\n", tz);
+}
+
+String urlEncode(const char* s) {
+  String o;
+  for (; *s; s++) {
+    char c = *s;
+    if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.') {
+      o += c;
+    } else {
+      char b[4];
+      snprintf(b, sizeof(b), "%%%02X", (uint8_t)c);
+      o += b;
+    }
+  }
+  return o;
+}
+
+// Looks up the typed city once (Open-Meteo geocoding, HTTPS).
+void geocode() {
+  char place[32];
+  portENTER_CRITICAL(&settingsMux);
+  memcpy(place, settings.place, sizeof(place));
+  portEXIT_CRITICAL(&settingsMux);
+  String url = "https://geocoding-api.open-meteo.com/v1/search?count=1&format=json&name=" + urlEncode(place);
+  WiFiClientSecure client;
+  client.setInsecure();  // public data, no secrets sent
+  HTTPClient http;
+  http.setTimeout(8000);
+  if (!http.begin(client, url)) return;
+  int code = http.GET();
+  float lat, lon;
+  char name[32];
+  if (code == 200 && coco::parseGeocode(http.getString().c_str(), lat, lon, name, sizeof(name))) {
+    saveLocation(lat, lon, name[0] ? String(name) : String(place));
+    Serial.printf("city: %s -> %.4f, %.4f\n", name, lat, lon);
+  } else {
+    Serial.printf("city: '%s' not found (HTTP %d)\n", place, code);
+  }
+  http.end();
+}
+
 bool fetchWeather() {
+  float lat, lon;
+  portENTER_CRITICAL(&settingsMux);
+  lat = settings.lat;
+  lon = settings.lon;
+  portEXIT_CRITICAL(&settingsMux);
   char url[256];
   snprintf(url, sizeof(url),
            "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
            "&current=temperature_2m,relative_humidity_2m,weather_code,is_day"
            "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1",
-           (double)WEATHER_LAT, (double)WEATHER_LON);
+           (double)lat, (double)lon);
   HTTPClient http;
   http.setTimeout(8000);
   if (!http.begin(url)) return false;
@@ -267,6 +337,7 @@ bool fetchWeather() {
       portEXIT_CRITICAL(&netMux);
       rtcSave = {kRtcMagic, w.tempC, w.hiC, w.loC, (int16_t)w.humidity, (uint8_t)w.sky, (uint8_t)w.isDay,
                  (int64_t)now};
+      if (w.hasOffset) applyTz(w.utcOffsetSec);
       ok = true;
     }
   }
@@ -278,15 +349,17 @@ bool fetchWeather() {
 void syncOnce() {
   setWifiText("connecting");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(settings.ssid.c_str(), settings.pass.c_str());
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) delay(200);
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("wifi: could not connect");
+    Serial.printf("wifi: could not join '%s'\n", settings.ssid.c_str());
     setWifiText("failed");
+    wifiFailed = true;
   } else {
     Serial.printf("wifi: connected, IP %s\n", WiFi.localIP().toString().c_str());
-    configTzTime(TZ_INFO, "pool.ntp.org", "time.google.com");
+    configTzTime(settings.tz.c_str(), "pool.ntp.org", "time.google.com");
+    if (settings.needGeocode) geocode();
     t0 = millis();
     while (!timeValid() && millis() - t0 < 8000) delay(100);
     fetchWeather();
@@ -329,6 +402,7 @@ void noteInteraction(uint32_t now) {
 }
 
 void onTap(uint32_t now) {
+  if (setupMode) return;
   if (showingCards) {
     card = (Card)(((int)card + 1) % (int)Card::Count);
     cardSince = now;
@@ -346,7 +420,21 @@ void onTap(uint32_t now) {
   }
 }
 
+void startSetupMode() {
+  // restart into setup, so the hotspot never fights the weather task for the radio
+  setupRequest = kSetupMagic;
+  canvas.clear();
+  drawNotice(canvas, "Wi-Fi setup", "Starting my hotspot...", false);
+  oled.show(canvas.buf);
+  delay(300);
+  ESP.restart();
+}
+
 void onDoubleTap(uint32_t now) {
+  if (setupMode) {
+    if (settings.ssid.length()) ESP.restart();  // leave setup, keep the saved Wi-Fi
+    return;
+  }
   if (showingCards) {
     showingCards = false;
     react(Face::Happy, 1500);
@@ -359,6 +447,7 @@ void onDoubleTap(uint32_t now) {
 }
 
 void onLongPress() {
+  if (setupMode) return;
   showingCards = false;
   holdingLove = true;
   react(Face::Love, 60000);
@@ -390,7 +479,9 @@ void updateTouch(uint32_t now) {
   }
   if (!down && wasDown) {
     uint32_t held = now - pressAt;
-    if (held >= kHoldSleepMs) {
+    if (held >= kHoldSetupMs) {
+      startSetupMode();
+    } else if (held >= kHoldSleepMs && !setupMode) {
       goToSleep();
     } else if (swallowPress) {
       // nothing: that touch only woke Coco up
@@ -421,7 +512,7 @@ void updateTouch(uint32_t now) {
 
 void drawClockCard(uint32_t t) {
   if (!timeValid()) {
-    drawNotice(canvas, "Clock", "No time yet. Set Wi-Fi in coco_config.h", false);
+    drawNotice(canvas, "Clock", "No time yet. Hold my head 10 s to set up Wi-Fi", false);
     return;
   }
   time_t now = time(nullptr);
@@ -432,7 +523,13 @@ void drawClockCard(uint32_t t) {
   drawClock(canvas, tm.tm_hour, tm.tm_min, date, t);
 }
 
-void drawWeatherCard(uint32_t t) { coco::drawWeather(canvas, currentWeather(), WEATHER_PLACE, t); }
+void drawWeatherCard(uint32_t t) {
+  char place[32];
+  portENTER_CRITICAL(&settingsMux);
+  memcpy(place, settings.place, sizeof(place));
+  portEXIT_CRITICAL(&settingsMux);
+  coco::drawWeather(canvas, currentWeather(), place, t);
+}
 
 void drawStatusCard() {
   time_t at;
@@ -442,7 +539,7 @@ void drawStatusCard() {
   portENTER_CRITICAL(&netMux);
   memcpy(wifi, wifiText, sizeof(wifi));
   portEXIT_CRITICAL(&netMux);
-  if (strlen(WIFI_SSID) == 0) strcpy(wifi, "not set");
+  if (settings.ssid.length() == 0) strcpy(wifi, "not set");
   coco::drawStatus(canvas, batteryPct, batteryPresent ? batteryMv : 0, wifi, ageMin, kVersion);
 }
 
@@ -476,6 +573,24 @@ void render(uint32_t now) {
 
   if (booting) {
     if (drawBoot(canvas, now - bootAt, kVersion)) booting = false;
+    return;
+  }
+
+  if (setupMode) {
+    drawWifiSetup(canvas, portal::apName.c_str(), portal::kUrl, portal::phoneJoined(), now - setupSince);
+    uint32_t held = wasDown ? now - pressAt : 0;
+    if (held >= 2000) coco::drawHold(canvas, held);
+    return;
+  }
+
+  if (wifiFailed) {
+    wifiFailed = false;
+    noticeUntil = now + 8000;
+  }
+  if (now < noticeUntil) {
+    char msg[64];
+    snprintf(msg, sizeof(msg), "Can't join %s. Hold my head 10 s to fix it.", settings.ssid.c_str());
+    drawNotice(canvas, "Wi-Fi", msg, true);
     return;
   }
 
@@ -583,7 +698,8 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, HIGH);
   analogSetPinAttenuation(PIN_BATTERY, ADC_11db);
-  setenv("TZ", TZ_INFO, 1);  // local time also right after a deep sleep
+  loadSettings();
+  setenv("TZ", settings.tz.c_str(), 1);  // local time also right after a deep sleep
   tzset();
 
   bool fromSleep = esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
@@ -609,13 +725,27 @@ void setup() {
   if (fromSleep) react(Face::Yawn, 2800);
   updateBattery(now);
 
-  if (strlen(WIFI_SSID) > 0) xTaskCreate(netTask, "coco_net", 8192, nullptr, 1, nullptr);
-  Serial.printf("Coco Touch %s ready (%s)\n", kVersion, fromSleep ? "woke from sleep" : "power on");
+  setupMode = setupRequest == kSetupMagic || settings.ssid.length() == 0;
+  setupRequest = 0;
+  if (setupMode) {
+    booting = false;
+    setupSince = now;
+    portal::begin();
+  } else {
+    xTaskCreate(netTask, "coco_net", 8192, nullptr, 1, nullptr);
+  }
+  Serial.printf("Coco Touch %s ready (%s%s)\n", kVersion, fromSleep ? "woke from sleep" : "power on",
+                setupMode ? ", Wi-Fi setup" : "");
 }
 
 void loop() {
   static uint32_t last = millis();
   uint32_t now = millis();
+  if (setupMode) {
+    portal::loop();
+    lastInteraction = now;  // no naps while setting up
+    if (settings.ssid.length() && now - setupSince > 15 * 60000UL) ESP.restart();  // gave up: back to normal
+  }
   if (!booting) updateTouch(now);
   updateBattery(now);
   if (kDeepSleepMs && napping(now) && now - lastInteraction > napAfter() + kDeepSleepMs) goToSleep();

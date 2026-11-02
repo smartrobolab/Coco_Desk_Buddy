@@ -127,9 +127,36 @@ bool parseOpenMeteo(const char* json, Weather& out) {
   w.humidity = (int)lroundf(hum);
   w.sky = skyFromWmo((int)code);
   w.isDay = day > 0.5f;
+  float off = 0;
+  w.hasOffset = number(json, "utc_offset_seconds", off);
+  w.utcOffsetSec = (int)off;
   w.valid = true;
   out = w;
   return true;
+}
+
+bool parseGeocode(const char* json, float& lat, float& lon, char* name, int nameLen) {
+  if (!json) return false;
+  const char* res = strstr(json, "\"results\":");
+  if (!res || !number(res, "latitude", lat) || !number(res, "longitude", lon)) return false;
+  if (name && nameLen > 0) {
+    name[0] = 0;
+    const char* p = strstr(res, "\"name\":\"");
+    if (p) {
+      p += 8;
+      int n = 0;
+      while (*p && *p != '"' && n < nameLen - 1) name[n++] = *p++;
+      name[n] = 0;
+    }
+  }
+  return true;
+}
+
+void posixTz(int sec, char* out, int outLen) {
+  // POSIX counts the other way round: UTC+9 is "-9"
+  int a = sec < 0 ? -sec : sec;
+  int h = a / 3600, m = (a % 3600) / 60;
+  snprintf(out, outLen, "<%c%02d%02d>%c%d:%02d", sec < 0 ? '-' : '+', h, m, sec < 0 ? '+' : '-', h, m);
 }
 
 void drawWeatherIcon(Canvas& c, int cx, int cy, Sky sky, bool day, uint32_t t) {
@@ -197,8 +224,8 @@ void drawWeather(Canvas& c, const Weather& w, const char* place, uint32_t t) {
   if (!w.valid) {
     drawWeatherIcon(c, 24, 26, Sky::Unknown, true, t);
     c.text(50, 14, "No weather", kFontMedium);
-    c.text(50, 30, "Set Wi-Fi in", kFontSmall);
-    c.text(50, 39, "coco_config.h", kFontSmall);
+    c.text(50, 30, "Hold my head", kFontSmall);
+    c.text(50, 39, "10 s: Wi-Fi setup", kFontSmall);
     return;
   }
   drawWeatherIcon(c, 22, 24, w.sky, w.isDay, t);
@@ -265,8 +292,22 @@ void drawHold(Canvas& c, uint32_t held) {
   c.rect(0, 44, kibo::kWidth, 20);
   c.setColor(1);
   c.frame(0, 44, kibo::kWidth, 20);
-  const uint32_t from = 2000, to = 5000;
-  c.textCentered(64, 46, held < to ? "keep holding: sleep" : "let go = sleep", kFontSmall);
+  const char* label;
+  uint32_t from, to;
+  if (held < 5000) {
+    label = "keep holding: sleep";
+    from = 2000;
+    to = 5000;
+  } else if (held < 10000) {
+    label = "let go = sleep / hold = Wi-Fi";
+    from = 5000;
+    to = 10000;
+  } else {
+    label = "let go = Wi-Fi setup";
+    from = 0;
+    to = 1;
+  }
+  c.textCentered(64, 46, label, kFontSmall);
   int pct = held >= to ? 100 : held <= from ? 0 : (int)((held - from) * 100 / (to - from));
   c.frame(6, 55, 116, 6);
   c.rect(7, 56, 114 * pct / 100, 4);

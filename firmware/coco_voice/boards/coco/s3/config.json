@@ -1,0 +1,22 @@
+{
+    "manufacturer": "coco",
+    "type": "coco-s3",
+    "target": "esp32s3",
+    "builds": [
+        {
+            "name": "coco-s3",
+            "sdkconfig_append": [
+                "CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y",
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/coco_8m.csv\"",
+                "CONFIG_USE_AFE_WAKE_WORD=n",
+                "CONFIG_USE_CUSTOM_WAKE_WORD=y",
+                "CONFIG_CUSTOM_WAKE_WORD=\"hey coco\"",
+                "CONFIG_CUSTOM_WAKE_WORD_DISPLAY=\"Hey Coco\"",
+                "CONFIG_CUSTOM_WAKE_WORD_THRESHOLD=20",
+                "CONFIG_SR_MN_CN_NONE=y",
+                "CONFIG_SR_MN_EN_MULTINET7_QUANT=y",
+                "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n"
+            ]
+        }
+    ]
+}

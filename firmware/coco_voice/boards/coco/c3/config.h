@@ -1,5 +1,5 @@
 // Coco Voice - ESP32-C3 Super Mini pin map.
-// Matches docs/images/coco_voice_wiring.png. Change pins here only together with the wiring.
+// Matches coco_voice_c3/images/coco_voice_c3_wiring.png. Change pins here only together with the wiring.
 // Same GPIOs as Kibo's C3 build, with a 0.96" SSD1306 and no MPU6050.
 #ifndef _BOARD_CONFIG_H_
 #define _BOARD_CONFIG_H_

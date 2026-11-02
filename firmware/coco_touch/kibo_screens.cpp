@@ -166,6 +166,22 @@ void drawHoldMenu(Canvas& c, uint32_t held) {
   c.rect(7, 56, 114 * pct / 100, 4);
 }
 
+// "COCO" in big drawn letters: the 10 px font's C reads like an o on a 0.96" panel.
+static void drawCocoLogo(Canvas& c, int cx, int cy) {
+  const int r = 6, gap = 4, w = 2 * r + 1;
+  int x = cx - (4 * w + 3 * gap) / 2 + r;
+  for (int i = 0; i < 4; i++) {
+    c.ring(x, cy, r, 2);
+    if (i % 2 == 0) {  // C: open on the right
+      c.setColor(0);
+      c.rect(x + 1, cy - 2, r + 1, 5);
+      c.triangle(x + 1, cy, x + r + 2, cy - 5, x + r + 2, cy + 5);
+      c.setColor(1);
+    }
+    x += w + gap;
+  }
+}
+
 bool drawBoot(Canvas& c, uint32_t t, const char* version) {
   // 0-600 ms: line grows; 600-1100 ms: eyes open; then title
   if (t < 600) {
@@ -178,7 +194,7 @@ bool drawBoot(Canvas& c, uint32_t t, const char* version) {
     c.roundRectC(90, 28, 28, h, 9);
   }
   if (t > 1100) {
-    c.textCentered(64, 50, "COCO", kFontMedium);
+    drawCocoLogo(c, 64, 55);
     if (version) c.text(128 - c.textWidth(version, kFontSmall), 57, version, kFontSmall);
   }
   return t > 2200;

@@ -3,8 +3,9 @@
 
     sim/build.sh && python3 sim/make_screens.py
 
-Outputs docs/images/screens/*.png, *.gif and the contact sheet
-docs/images/coco_screens.png. Needs Pillow.
+Outputs shared/images/screens/*.png, *.gif (single frames), the face sheet
+shared/images/coco_faces.png (all versions) and the Coco Touch screen sheet
+coco_touch/images/coco_touch_screens.png. Needs Pillow.
 """
 import os
 import subprocess
@@ -14,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RENDER = os.path.join(HERE, "build", "render")
-OUT = os.path.join(ROOT, "docs", "images", "screens")
+OUT = os.path.join(ROOT, "shared", "images", "screens")
 SCALE = 4
 ON = (40, 225, 235)   # cyan OLED pixel, like the 0.96" in the reference photo
 OFF = (6, 12, 16)
@@ -23,11 +24,11 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FACES = ["neutral", "serious", "sleepy", "crying", "sad", "cute", "kissou", "mini_love", "anime_love", "fire",
          "angry", "love", "happy", "surprised", "dizzy", "sleeping", "eating", "playing", "music", "singing", "yawn",
          "low_battery"]
-CARDS = ["boot", "clock", "weather-clear", "weather-partly", "weather-cloudy", "weather-rain", "weather-thunder",
+CARDS = ["boot", "wifi", "wifi2", "wififail", "clock", "weather-clear", "weather-partly", "weather-cloudy", "weather-rain", "weather-thunder",
          "weather-snow", "weather-fog", "weather-night", "status", "hold", "noweather"]
 STILL_MS = {"eating": 2000, "playing": 1100, "music": 300, "singing": 400, "sleeping": 2900, "yawn": 1000,
             "happy": 150, "surprised": 150, "dizzy": 300, "low_battery": 600, "anime_love": 300, "boot": 2000,
-            "hold": 1500, "weather-thunder": 200}
+            "hold": 1400, "weather-thunder": 200}
 
 
 def frames(kind, name, fps, dur):
@@ -91,11 +92,12 @@ def main():
         imgs = [to_image(b, 2) for b in frames(kind, name, 20, dur)]
         imgs[0].save(os.path.join(OUT, f"{kind}_{name}.gif"), save_all=True, append_images=imgs[1:], duration=50,
                      loop=0)
-    sheet(face_imgs, 4, os.path.join(ROOT, "docs", "images", "coco_faces.png"),
-          "Coco faces (rendered from firmware/coco_touch)")
-    sheet(card_imgs, 4, os.path.join(ROOT, "docs", "images", "coco_cards.png"),
-          "Coco Touch cards: clock, weather, status")
-    print("wrote", OUT, "and docs/images/coco_faces.png, coco_cards.png")
+    sheet(face_imgs, 4, os.path.join(ROOT, "shared", "images", "coco_faces.png"),
+          "Coco faces - all versions (rendered from the firmware)")
+    os.makedirs(os.path.join(ROOT, "coco_touch", "images"), exist_ok=True)
+    sheet(card_imgs, 4, os.path.join(ROOT, "coco_touch", "images", "coco_touch_screens.png"),
+          "Coco Touch screens: boot, Wi-Fi setup, clock, weather, status")
+    print("wrote shared/images/screens, shared/images/coco_faces.png, coco_touch/images/coco_touch_screens.png")
 
 
 if __name__ == "__main__":

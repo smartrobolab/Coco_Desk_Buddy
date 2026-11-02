@@ -1,19 +1,23 @@
-// Coco Touch - your settings. Edit this file, then upload.
+// Coco Touch - defaults and pins.
+//
+// You don't need to edit anything to get going: Wi-Fi, password and city are
+// set from your phone (first boot, or hold Coco's head 10 s) and saved in flash.
+// The values below are only used until something has been saved.
 #pragma once
 
 // ---------------------------------------------------------------- Wi-Fi
-// Leave WIFI_SSID empty ("") to run offline: faces and touch still work,
-// the clock and weather cards just say they have no data.
+// Optional: pre-fill a network here instead of using the phone setup.
 #define WIFI_SSID     ""
 #define WIFI_PASSWORD ""
 
 // ------------------------------------------------------- time + weather
-// POSIX time zone string. Examples:
+// The time zone is learned from the weather location (daylight saving included).
+// TZ_INFO is only used before the first weather update. Examples:
 //   Japan "JST-9"   India "IST-5:30"   UK "GMT0BST,M3.5.0/1,M10.5.0"
-//   US Eastern "EST5EDT,M3.2.0,M11.1.0"   Central Europe "CET-1CEST,M3.5.0,M10.5.0/3"
 #define TZ_INFO "JST-9"
 
-// Weather location (decimal degrees) and the short name shown on the card.
+// Default weather location (decimal degrees) and its name on the card.
+// The phone setup page replaces it with the city you type.
 // Weather comes from open-meteo.com (free, no API key).
 #define WEATHER_LAT   35.6812
 #define WEATHER_LON   139.7671
@@ -28,7 +32,7 @@
 #define HOURLY_CLOCK         1    // show the clock for a few seconds at every full hour
 
 // ----------------------------------------------------------------- pins
-// ESP32-C3 Super Mini. Matches docs/images/coco_touch_wiring.png.
+// ESP32-C3 Super Mini. Matches coco_touch/images/coco_touch_wiring.png.
 #define PIN_SDA     4    // OLED SDA
 #define PIN_SCL     5    // OLED SCL
 #define PIN_TOUCH   0    // TTP223 I/O (HIGH = touched). Must be GPIO0-5 to wake from deep sleep.

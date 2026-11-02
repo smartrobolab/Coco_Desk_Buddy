@@ -1,0 +1,115 @@
+# Coco Voice S3 - "Hey Coco"
+
+The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the same case and modules as [Coco Voice C3](../coco_voice_c3), with a **Seeed XIAO ESP32-S3** instead of the C3. The S3's PSRAM can run a custom wake word, so you don't have to say "Hi ESP".
+
+**Frame:** 56 x 44 x 30 mm  ·  **Board:** Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  ·  **Firmware:** XiaoZhi custom board `coco/s3` ([firmware/coco_voice](../firmware/coco_voice))  ·  **Battery life:** about 3-4 h of talking
+
+![Coco Voice S3 case](images/coco_voice_s3_case.png)
+
+## Everything for this version
+
+| File | What it is |
+|---|---|
+| [images/coco_voice_s3_wiring.png](images/coco_voice_s3_wiring.png) | circuit diagram |
+| [images/coco_voice_s3_case.png](images/coco_voice_s3_case.png) | brass case: 3D, front, side, top, measurements, cut list |
+| [images/coco_voice_s3_assembly.png](images/coco_voice_s3_assembly.png) | 6 build steps |
+| [images/coco_voice_s3_bending_template.pdf](images/coco_voice_s3_bending_template.pdf) | 1:1 template, print at 100 % |
+| [cad/coco_voice_s3_full.stl](cad/coco_voice_s3_full.stl) | 3D model, frame + all parts |
+| [cad/coco_voice_s3_frame.stl](cad/coco_voice_s3_frame.stl) | 3D model, brass frame only |
+| [../firmware/coco_voice/boards/coco/s3](../firmware/coco_voice/boards/coco/s3) | board config (pins, "hey coco" wake word) |
+
+## Which ESP32-S3 board
+
+| Board | Works? |
+|---|---|
+| **Seeed XIAO ESP32S3** (8 MB flash, 8 MB PSRAM, 21 x 17.8 mm) | **yes**, the pin map is made for it, and it's smaller than the C3 |
+| ESP32-S3-DevKitC-1 N8R8 / N16R8 | yes, same GPIOs, but too big for this case |
+| "ESP32-S3 Super Mini" with 4 MB flash | **no**: the wake-word model doesn't fit in 4 MB |
+| XIAO ESP32S3 **Sense** | yes (the camera board is just not used) |
+
+## Parts
+
+Everything from [Coco Voice C3](../coco_voice_c3/README.md#parts), with the **XIAO ESP32S3** instead of the ESP32-C3 Super Mini.
+
+## Circuit
+
+![Coco Voice S3 wiring](images/coco_voice_s3_wiring.png)
+
+Same modules and wires as Coco Voice C3; only the board pins change. Wires with the same label (TOUCH, SDA, BCLK...) are connected.
+
+| XIAO pad | GPIO | Goes to |
+|---|---|---|
+| D0 | 1 | TTP223 I/O (wakes from deep sleep) |
+| D1 | 2 | battery sense (1 MΩ / 330 kΩ / 100 nF from BAT_SW) |
+| D3 | 4 | MAX98357A DIN |
+| D4 / D5 | 5 / 6 | OLED SDA / SCL |
+| D6 | 43 | MAX98357A SD |
+| D8 | 7 | I2S BCLK: INMP441 SCK + MAX98357A BCLK |
+| D9 | 8 | I2S WS: INMP441 WS + MAX98357A LRC |
+| D10 | 9 | INMP441 SD |
+| 3V3 | - | 3.3 V LDO output: OLED, TTP223, INMP441 |
+| 5V | - | not connected |
+| GND | - | brass frame |
+
+Don't use the XIAO's battery pads on its underside: Coco charges through the TP4056 and powers the XIAO through the LDO.
+
+## Building the case
+
+![Coco Voice S3 assembly](images/coco_voice_s3_assembly.png)
+
+Same steps as [Coco Voice C3](../coco_voice_c3/README.md#building-the-case). The XIAO sits on the back bars in the C3's place, USB-C to the right. Read [../shared/brass-tips.md](../shared/brass-tips.md) first.
+
+## Firmware
+
+Needs Docker (for the ESP-IDF build) and `pip install esptool`.
+
+```bash
+firmware/coco_voice/build.sh s3          # "Hey Coco" is built in (boards/coco/s3/config.json)
+firmware/coco_voice/flash.sh /dev/ttyACM0
+```
+
+If the port doesn't appear: hold the XIAO's **B** (boot) button, plug in USB, release. Switch OFF while the USB cable is in.
+
+To make the wake word more or less sensitive, change `CONFIG_CUSTOM_WAKE_WORD_THRESHOLD` in `boards/coco/s3/config.json` (lower = triggers more easily, default 20), then build again.
+
+### First start
+
+1. Coco shows a QR code: join its hotspot with your phone, pick your Wi-Fi, type the password.
+2. Coco shows a 6-digit code. Log in at [xiaozhi.me](https://xiaozhi.me), add a device, and type the code.
+3. Set up the agent as below.
+
+### A calm voice
+
+The voice and personality live in your agent on [xiaozhi.me](https://xiaozhi.me), not in the firmware. You can change them anytime without flashing.
+
+1. **Name:** Coco. **Language:** English (or yours).
+2. **Voice:** open the voice list, preview a few, and pick a soft, slow, warm one. If there's a speed setting, set it a little below normal.
+3. **Role / personality prompt:** paste this:
+
+   > You are Coco, a tiny brass desk buddy who lives on a small screen as a pair of eyes. You speak calmly and gently, in short, warm sentences: one to three at a time. You never rush, never shout, and never use lists or emojis. You help with focus, breaks, the weather, small questions and friendly chat. If the person sounds stressed or tired, slow down, be kind, and suggest a short breath or a break. When you don't know something, say so simply.
+
+4. Save, then say "Hey Coco, how are you?" to try it.
+
+Coco's face follows the emotion of each answer, and the AI can also change it with `self.coco.show_face` and `self.coco.do_activity`.
+
+| Touch | Idle | While talking |
+|---|---|---|
+| tap | next face | stop / interrupt |
+| double-tap | talk to Coco | end the conversation |
+| long press | Love + purr | - |
+| hold 5-10 s, let go | deep sleep | same |
+| hold > 10 s, let go | Wi-Fi setup | same |
+
+## 3D model
+
+[cad/coco_voice_s3_full.stl](cad/coco_voice_s3_full.stl): mm, front faces -Y, opens in any STL viewer and on GitHub.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| "Hey Coco" not heard | mic hole facing out? D8/D9/D10 wiring? Lower the wake word threshold |
+| Wakes up by itself | raise the threshold (e.g. 30) |
+| Build fails for flash size | the board must have 8 MB flash (XIAO ESP32S3) |
+| No sound | amp VIN on BAT_SW, SD on D6, speaker on OUT+/OUT- |
+| Resets while talking | LDO must be ≥ 500 mA low-dropout (ME6211/RT9080), with capacitors |
