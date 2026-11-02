@@ -6,7 +6,7 @@ Coco is a palm-sized desk companion built as a **brass wire circuit sculpture**:
 
 ## Pick a version
 
-Each version has its own folder with **everything** for it: circuit diagram, case drawing, assembly steps, bending template, 3D models (STL) and a build guide.
+Each version has its own folder with **everything** for it: its own firmware, circuit diagram, case drawing, assembly steps, bending template, 3D models (STL) and a build guide.
 
 | | [**Coco Touch**](coco_touch/README.md) | [**Coco Voice C3**](coco_voice_c3/README.md) | [**Coco Voice S3**](coco_voice_s3/README.md) |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Each version has its own folder with **everything** for it: circuit diagram, cas
 | Board | ESP32-C3 Super Mini | ESP32-C3 Super Mini | Seeed XIAO ESP32S3 (8 MB + PSRAM) |
 | Extra parts | - | INMP441 mic, MAX98357A amp, 20 mm speaker | same as Voice C3 |
 | Frame | 52 x 40 x 20 mm | 56 x 44 x 30 mm | 56 x 44 x 30 mm |
-| Firmware | Arduino, [firmware/coco_touch](firmware/coco_touch) | XiaoZhi `coco/c3`, [firmware/coco_voice](firmware/coco_voice) | XiaoZhi `coco/s3`, [firmware/coco_voice](firmware/coco_voice) |
+| Firmware | Arduino, [coco_touch/firmware](coco_touch/firmware/coco_touch) | XiaoZhi `coco/c3`, [coco_voice_c3/firmware](coco_voice_c3/firmware) | XiaoZhi `coco/s3`, [coco_voice_s3/firmware](coco_voice_s3/firmware) |
 | Folder | [coco_touch/](coco_touch) | [coco_voice_c3/](coco_voice_c3) | [coco_voice_s3/](coco_voice_s3) |
 
 All versions share: the small **TTP223** touch pad as Coco's head, a **TP4056** charger, a slide switch, and a **3.3 V LDO** (ME6211 / RT9080) powering the board's 3V3 pin. Wi-Fi is set up **from your phone**: Coco shows a QR code, you pick your network and type the password and city. No code changes needed.
@@ -30,15 +30,20 @@ Every face is drawn from shapes each frame, so the eyes blink, glance around and
 
 ```text
 Coco_Desk_Buddy/
-├── coco_touch/        README.md, images/ (wiring, case, assembly, screens, template), cad/ (STL)
-├── coco_voice_c3/     README.md, images/, cad/
-├── coco_voice_s3/     README.md, images/, cad/
+├── coco_touch/
+│   ├── firmware/coco_touch/   Arduino sketch
+│   ├── images/                wiring, case, assembly, screens, bending template
+│   ├── cad/                   STL models
+│   └── README.md
+├── coco_voice_c3/
+│   ├── firmware/              XiaoZhi board coco/c3, shared/, build.sh, flash.sh
+│   ├── images/  cad/  README.md
+├── coco_voice_s3/
+│   ├── firmware/              XiaoZhi board coco/s3 ("Hey Coco"), partitions/, shared/, build.sh, flash.sh
+│   ├── images/  cad/  README.md
 ├── shared/            brass-tips.md (tools, soldering, LDO, safety), images/ (faces, overview, screens/)
-├── firmware/
-│   ├── coco_touch/    Arduino sketch (Coco Touch)
-│   └── coco_voice/    XiaoZhi boards coco/c3 + coco/s3, shared voice code, build.sh, flash.sh
 ├── sim/               PC renderer for faces/screens + parser tests
-└── tools/             make_diagrams.py (images + templates), make_stl.py (3D models)
+└── tools/             make_diagrams.py, make_stl.py, sync_shared.sh
 ```
 
 ## Regenerating the images and models
@@ -48,3 +53,5 @@ sim/build.sh && sim/build/render test && python3 sim/make_screens.py   # screens
 python3 tools/make_diagrams.py                                          # wiring, cases, assembly, templates
 python3 tools/make_stl.py                                               # STL models
 ```
+
+The face engine and the voice code exist once per version folder, so each folder is complete on its own. Edit the master copy (face engine: `coco_touch/firmware/coco_touch/`, voice code: `coco_voice_c3/firmware/shared/`), then run `tools/sync_shared.sh` to copy it to the others (`--check` only reports differences).

@@ -2,7 +2,7 @@
 
 The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch and shows the time and weather. No speaker, no microphone.
 
-**Frame:** 52 x 40 x 20 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** Arduino ([firmware/coco_touch](../firmware/coco_touch))  ·  **Battery life:** about a day, weeks in deep sleep
+**Frame:** 52 x 40 x 20 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** Arduino ([firmware/coco_touch](firmware/coco_touch))  ·  **Battery life:** about a day, weeks in deep sleep
 
 ![Coco Touch case](images/coco_touch_case.png)
 
@@ -17,7 +17,7 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | [images/coco_touch_screens.png](images/coco_touch_screens.png) | boot, Wi-Fi setup, clock, weather, status screens |
 | [cad/coco_touch_full.stl](cad/coco_touch_full.stl) | 3D model, frame + all parts |
 | [cad/coco_touch_frame.stl](cad/coco_touch_frame.stl) | 3D model, brass frame only |
-| [../firmware/coco_touch](../firmware/coco_touch) | Arduino sketch |
+| [firmware/coco_touch/](firmware/coco_touch) | Arduino sketch (this version's firmware) |
 
 ## Parts
 
@@ -67,7 +67,7 @@ Read [../shared/brass-tips.md](../shared/brass-tips.md) first (tools, soldering,
 ## Firmware
 
 1. Arduino IDE: install the **esp32 by Espressif** board package (3.x).
-2. Open [firmware/coco_touch/coco_touch.ino](../firmware/coco_touch/coco_touch.ino).
+2. Open [firmware/coco_touch/coco_touch.ino](firmware/coco_touch/coco_touch.ino).
 3. Tools: board **ESP32C3 Dev Module**, **USB CDC On Boot: Enabled**, **Partition Scheme: Huge APP (3MB No OTA/1MB SPIFFS)**.
 4. Switch OFF, plug the C3's USB-C, upload. No extra libraries are needed, and you don't have to edit any code.
 

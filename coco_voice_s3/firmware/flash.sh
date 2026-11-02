@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Flashes the last build (bootloader, partition table, app and assets) over USB.
 #
-#   firmware/coco_voice/flash.sh [/dev/ttyACM0]
+#   coco_voice_s3/firmware/flash.sh [/dev/ttyACM0]
 #
 # Uses esptool on the host (pip install esptool). The ESP32-C3/S3 USB port shows
 # up as /dev/ttyACM0 on Linux, /dev/cu.usbmodem* on macOS, COMx on Windows.

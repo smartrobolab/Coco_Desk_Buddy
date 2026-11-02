@@ -2,7 +2,7 @@
 
 The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the same case and modules as [Coco Voice C3](../coco_voice_c3), with a **Seeed XIAO ESP32-S3** instead of the C3. The S3's PSRAM can run a custom wake word, so you don't have to say "Hi ESP".
 
-**Frame:** 56 x 44 x 30 mm  ·  **Board:** Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  ·  **Firmware:** XiaoZhi custom board `coco/s3` ([firmware/coco_voice](../firmware/coco_voice))  ·  **Battery life:** about 3-4 h of talking
+**Frame:** 56 x 44 x 30 mm  ·  **Board:** Seeed XIAO ESP32S3 (8 MB flash + 8 MB PSRAM)  ·  **Firmware:** XiaoZhi custom board `coco/s3` ([firmware/](firmware))  ·  **Battery life:** about 3-4 h of talking
 
 ![Coco Voice S3 case](images/coco_voice_s3_case.png)
 
@@ -16,7 +16,7 @@ The chatty Coco: say **"Hey Coco"** and it answers in a calm voice. It is the sa
 | [images/coco_voice_s3_bending_template.pdf](images/coco_voice_s3_bending_template.pdf) | 1:1 template, print at 100 % |
 | [cad/coco_voice_s3_full.stl](cad/coco_voice_s3_full.stl) | 3D model, frame + all parts |
 | [cad/coco_voice_s3_frame.stl](cad/coco_voice_s3_frame.stl) | 3D model, brass frame only |
-| [../firmware/coco_voice/boards/coco/s3](../firmware/coco_voice/boards/coco/s3) | board config (pins, "hey coco" wake word) |
+| [firmware/](firmware) | this version's firmware: board config `boards/coco/s3` ("hey coco" wake word), 8 MB partitions, `build.sh`, `flash.sh` |
 
 ## Which ESP32-S3 board
 
@@ -61,16 +61,25 @@ Same steps as [Coco Voice C3](../coco_voice_c3/README.md#building-the-case). The
 
 ## Firmware
 
+### Flash the ready-made firmware (no tools)
+
+1. Open <https://espressif.github.io/esptool-js/> in Chrome or Edge and connect the XIAO (switch OFF).
+2. Flash [firmware/release/coco_voice_s3-merged.bin](firmware/release/coco_voice_s3-merged.bin) at address **0x0**.
+
+Or from a terminal: `python3 -m esptool --chip esp32s3 write-flash 0x0 coco_voice_s3/firmware/release/coco_voice_s3-merged.bin`
+
+### Build it yourself
+
 Needs Docker (for the ESP-IDF build) and `pip install esptool`.
 
 ```bash
-firmware/coco_voice/build.sh s3          # "Hey Coco" is built in (boards/coco/s3/config.json)
-firmware/coco_voice/flash.sh /dev/ttyACM0
+coco_voice_s3/firmware/build.sh          # "Hey Coco" is built in (firmware/boards/coco/s3/config.json)
+coco_voice_s3/firmware/flash.sh /dev/ttyACM0
 ```
 
 If the port doesn't appear: hold the XIAO's **B** (boot) button, plug in USB, release. Switch OFF while the USB cable is in.
 
-To make the wake word more or less sensitive, change `CONFIG_CUSTOM_WAKE_WORD_THRESHOLD` in `boards/coco/s3/config.json` (lower = triggers more easily, default 20), then build again.
+To make the wake word more or less sensitive, change `CONFIG_CUSTOM_WAKE_WORD_THRESHOLD` in `firmware/boards/coco/s3/config.json` (lower = triggers more easily, default 20), then build again.
 
 ### First start
 
@@ -112,4 +121,5 @@ Coco's face follows the emotion of each answer, and the AI can also change it wi
 | Wakes up by itself | raise the threshold (e.g. 30) |
 | Build fails for flash size | the board must have 8 MB flash (XIAO ESP32S3) |
 | No sound | amp VIN on BAT_SW, SD on D6, speaker on OUT+/OUT- |
+| Build stops with "error waiting for container: unexpected EOF" | Docker ran out of memory: build with `JOBS=6 coco_voice_s3/firmware/build.sh` |
 | Resets while talking | LDO must be ≥ 500 mA low-dropout (ME6211/RT9080), with capacitors |

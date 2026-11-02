@@ -4,7 +4,7 @@ Coco with a voice: same face and touch as Coco Touch, plus a microphone, an ampl
 
 Want it to answer to **"Hey Coco"**? Build [Coco Voice S3](../coco_voice_s3) instead (same case, different board).
 
-**Frame:** 56 x 44 x 30 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** XiaoZhi custom board `coco/c3` ([firmware/coco_voice](../firmware/coco_voice))  ·  **Battery life:** about 3-5 h of talking
+**Frame:** 56 x 44 x 30 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** XiaoZhi custom board `coco/c3` ([firmware/](firmware))  ·  **Battery life:** about 3-5 h of talking
 
 ![Coco Voice C3 case](images/coco_voice_c3_case.png)
 
@@ -18,7 +18,7 @@ Want it to answer to **"Hey Coco"**? Build [Coco Voice S3](../coco_voice_s3) ins
 | [images/coco_voice_c3_bending_template.pdf](images/coco_voice_c3_bending_template.pdf) | 1:1 template, print at 100 % |
 | [cad/coco_voice_c3_full.stl](cad/coco_voice_c3_full.stl) | 3D model, frame + all parts |
 | [cad/coco_voice_c3_frame.stl](cad/coco_voice_c3_frame.stl) | 3D model, brass frame only |
-| [../firmware/coco_voice/boards/coco/c3](../firmware/coco_voice/boards/coco/c3) | board config (pins) |
+| [firmware/](firmware) | this version's firmware: board config `boards/coco/c3`, `build.sh`, `flash.sh` |
 
 ## Parts
 
@@ -68,14 +68,23 @@ Keep the I2S wires (GPIO6, 7, 3, 10) short and apart, and away from the speaker 
 
 ## Firmware
 
+### Flash the ready-made firmware (no tools)
+
+1. Open <https://espressif.github.io/esptool-js/> in Chrome or Edge and connect the C3 (switch OFF).
+2. Flash [firmware/release/coco_voice_c3-merged.bin](firmware/release/coco_voice_c3-merged.bin) at address **0x0**.
+
+Or from a terminal: `python3 -m esptool --chip esp32c3 write-flash 0x0 coco_voice_c3/firmware/release/coco_voice_c3-merged.bin`
+
+### Build it yourself
+
 Needs Docker (for the ESP-IDF build) and `pip install esptool`.
 
 ```bash
-firmware/coco_voice/build.sh c3          # clones xiaozhi-esp32, builds in Docker
-firmware/coco_voice/flash.sh /dev/ttyACM0
+coco_voice_c3/firmware/build.sh          # clones xiaozhi-esp32, builds in Docker
+coco_voice_c3/firmware/flash.sh /dev/ttyACM0
 ```
 
-Switch OFF while the USB cable is in. To change the wake word, use `WAKE=wn9s_hijason firmware/coco_voice/build.sh c3` (the C3 can only use Espressif's ready-made wake words).
+Switch OFF while the USB cable is in. To change the wake word, use `WAKE=wn9s_hijason coco_voice_c3/firmware/build.sh` (the C3 can only use Espressif's ready-made wake words).
 
 ### First start
 
@@ -106,5 +115,6 @@ This is Kibo's tested ESP32-C3 voice board, configured for the 0.96" SSD1306 and
 | No sound | amp VIN on BAT_SW? SD (GPIO20) wired? Speaker on OUT+/OUT- |
 | It doesn't hear "Hi ESP" | mic sound hole facing out? SCK/WS/SD on GPIO6/7/3? L/R to GND |
 | It hears itself | turn the speaker away from the mic hole, or say "volume 50" |
+| Build stops with "error waiting for container: unexpected EOF" | Docker ran out of memory: build with `JOBS=6 coco_voice_c3/firmware/build.sh` |
 | Resets while talking | wrong LDO (needs ≥ 500 mA), missing capacitors, low battery |
-| Face upside down | `DISPLAY_MIRROR_X/Y` in boards/coco/c3/config.h |
+| Face upside down | `DISPLAY_MIRROR_X/Y` in firmware/boards/coco/c3/config.h |
