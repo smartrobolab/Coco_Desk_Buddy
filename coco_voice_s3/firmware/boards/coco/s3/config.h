@@ -46,9 +46,10 @@
 // ---- Amp shutdown ----
 #define KIBO_AMP_SD_GPIO  GPIO_NUM_43    // D6 - MAX98357A SD
 
-// ---- Battery: BAT_SW -> 1M -> D1 (GPIO2) -> 330k -> GND, 100 nF across 330k ----
+// ---- Battery: BAT_SW -> 330k -> D1 (GPIO2) -> 330k -> GND, 100 nF across the bottom 330k ----
+// (Vbat / 2 at the pin: 4.2 V -> 2.1 V, inside the 12 dB ADC range)
 #define KIBO_BATTERY_ADC_CHANNEL    1    // ADC1_CH1 = GPIO2
-#define KIBO_BATTERY_DIVIDER_TOP    1000000.0f
+#define KIBO_BATTERY_DIVIDER_TOP    330000.0f
 #define KIBO_BATTERY_DIVIDER_BOTTOM 330000.0f
 
 // ---- No MPU6050 in Coco: the probe at 0x68 finds nothing and motion is skipped ----

@@ -135,9 +135,11 @@ def add_parts(mesh, d):
 
 
 def main():
-    for d in (md.touch_design(), md.voice_design(), md.voice_design(s3=True)):
+    for d in (md.touch_design(), md.voice_design(), md.voice_design(s3=True),
+              md.voice_design(s3=True, hw747=True)):
         slug = d.slug
-        out = os.path.join(ROOT, slug, "cad")
+        folder = next(v for v in md.VERSIONS if slug == v or slug.startswith(v + "_"))  # HW-747 -> coco_voice_s3
+        out = os.path.join(ROOT, folder, "cad")
         os.makedirs(out, exist_ok=True)
         frame = Mesh()
         add_frame(frame, d)

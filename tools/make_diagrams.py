@@ -128,7 +128,9 @@ class Sheet:
         ax.plot([x, x], [y0, ym - 3], color=W_PURPLE, lw=2, zorder=2)
         ax.plot([x, x], [ym + 3, y1], color=W_PURPLE, lw=2, zorder=2)
         ax.add_patch(Rectangle((x - 1.2, ym - 3), 2.4, 6, fc="#e8d5a8", ec="#333", lw=1, zorder=3))
-        for i, c in enumerate(["#7a4a1a", "#111", "#2b9348"]):
+        # colour code, first band at the bottom: 1M = brown black green, 330k = orange orange yellow
+        bands = {"1 MΩ": ["#7a4a1a", "#111", "#2b9348"], "330 kΩ": ["#f08c00", "#f08c00", "#fcc419"]}[label]
+        for i, c in enumerate(bands):
             ax.add_patch(Rectangle((x - 1.2, ym - 2 + i * 1.5), 2.4, 0.5, fc=c, ec="none", zorder=4))
         ax.text(x + 2, ym, label, fontsize=7, va="center", color=INK, zorder=4)
 
@@ -231,10 +233,11 @@ def devkit_board(s, x, y):
     return p
 
 
-def power_chain(s, p, x0, sense="G1", v3_flag=False):
+def power_chain(s, p, x0, sense="G1", v3_flag=False, top="1 MΩ"):
     """Battery, TP4056, slide switch, 3.3 V LDO and battery divider on the right of the board.
     sense: board pin for the battery divider, wired directly; None = net label BAT_SENSE.
-    v3_flag: end the LDO output in a 3V3 net label instead of wiring it to the board's 3V3 pin."""
+    v3_flag: end the LDO output in a 3V3 net label instead of wiring it to the board's 3V3 pin.
+    top: the divider's top resistor (the S3 builds use 330k + 330k)."""
     ax = s.ax
     # TP4056 (pins on top edge)
     tp = s.module(x0 + 22, 30, 26, 18, "TP4056", "1A charger + protection", PCB_BLUE,
@@ -287,10 +290,10 @@ def power_chain(s, p, x0, sense="G1", v3_flag=False):
         ax.text(p["5V"][0] + 0.6, p["5V"][1] + 1.5, "nc", fontsize=5.8, color="#777")
     s.gnd(ldo["G"][0], ldo["G"][1])
 
-    # divider: BAT_SW -> 1M -> sense pin -> 330k -> GND, 100nF across 330k
+    # divider: BAT_SW -> top -> sense pin -> 330k -> GND, 100nF across 330k
     dx = x0 + 1
     ny = 36  # divider middle
-    s.resistor(dx, ny, sy, "1 MΩ")
+    s.resistor(dx, ny, sy, top)
     if sense:
         s.wire([p[sense], (dx, ny)], W_PURPLE, dots=[(dx, ny)])
     else:
@@ -488,9 +491,9 @@ def voice_s3_wiring(four_mb=False, devkit=False):
     s.wire([amp["OUT+"], (spk_x + 2.4, amp["OUT+"][1]), (spk_x + 1.6, spk_y + 2.6)], W_RED, lw=1.6)
     s.wire([amp["OUT-"], (spk_x + 2.4, amp["OUT-"][1]), (spk_x + 1.6, spk_y - 2.6)], W_BLACK, lw=1.6)
 
-    power_chain(s, p, 104, sense=None, v3_flag=devkit)
+    power_chain(s, p, 104, sense=None, v3_flag=devkit, top="330 kΩ")
     if devkit:
-        s.note(118, 22, 50, ["G1 touch          G2 battery sense", "G4 amp DIN        G43 amp SD (TX)",
+        s.note(118, 22, 50, ["G1 touch    G2 battery sense (330k/330k)", "G4 amp DIN        G43 amp SD (TX)",
                              "G5 SDA            G6 SCL", "G7 BCLK   G8 WS   G9 mic SD",
                              "3V3 <- LDO (+ 1 µF on IN and OUT)", "5V unused   mic L/R -> GND"],
                title="Pin map (GPIO number)", fc="#eef6ff", ec=W_BLUE)
@@ -502,7 +505,7 @@ def voice_s3_wiring(four_mb=False, devkit=False):
         s.save("coco_voice_s3_devkit_wiring.png")
         return
     if four_mb:
-        s.note(118, 22, 50, ["G1 touch          G2 battery sense", "G4 amp DIN        TX (G43) amp SD",
+        s.note(118, 22, 50, ["G1 touch    G2 battery sense (330k/330k)", "G4 amp DIN        TX (G43) amp SD",
                              "G5 SDA            G6 SCL", "G7 BCLK   G8 WS   G9 mic SD",
                              "3V3 <- LDO   5V unused   mic L/R -> GND"], title="Pin map (GPIO number)",
                fc="#eef6ff", ec=W_BLUE)
@@ -600,9 +603,15 @@ def touch_design():
     return d
 
 
-def voice_design(s3=False):
-    d = Design("COCO VOICE S3" if s3 else "COCO VOICE C3", 56, 44, 30)
-    d.slug = "coco_voice_s3" if s3 else "coco_voice_c3"
+def voice_design(s3=False, hw747=False):
+    """hw747: Coco Voice S3 on the ESP32-S3 Super Mini (HW-747) with the 1.3" SH1106 OLED (35.4 x 33.5 mm),
+    2 mm wider so the bigger screen fits the right bay."""
+    if hw747:
+        d = Design("COCO VOICE S3 HW-747", 58, 44, 30)
+        d.slug = "coco_voice_s3_hw747_esp32s3"
+    else:
+        d = Design("COCO VOICE S3" if s3 else "COCO VOICE C3", 56, 44, 30)
+        d.slug = "coco_voice_s3" if s3 else "coco_voice_c3"
     W, H, D = d.W, d.H, d.D
     d.rect_front(0)
     d.rect_front(D)
@@ -621,19 +630,40 @@ def voice_design(s3=False):
     for y in (8, 34):
         d.bar((10, y, 1.4), (10, y, 0), 2)
         d.bar((1.4, y, 10), (0, y, 10), 2)
-    d.part(3, "box", "TP4056", 42, 0.6, 11.5, 12, 3.6, 17, PCB_BLUE, port=("z+", "USB-C charge"))
+    d.part(3, "box", "TP4056", 44 if hw747 else 42, 0.6, 11.5, 12, 3.6, 17, PCB_BLUE, port=("z+", "USB-C charge"))
     d.part(3, "box", "MAX98357A", 21, 0.6, 3.5, 19.3, 3.0, 17.8, PCB_PURPLE)
     d.part(3, "box", "switch", -3.0, 10, 21, 3.6, 4.0, 8.6, "#cfcfcf", knob=True)
-    if s3:
+    if hw747:
+        d.part(4, "box", "HW-747", W - 0.6 - 22.5, 14, D - 4.2, 22.5, 18, 3.6, PCB_BLACK, port=("x+", "USB-C code"))
+    elif s3:
         d.part(4, "box", "XIAO S3", 27, 14, D - 4.2, 21, 17.8, 3.4, PCB_BLACK, port=("x+", "USB-C code"))
     else:
         d.part(4, "box", "ESP32-C3", 26, 14, D - 4.2, 22.5, 18, 3.6, PCB_BLACK, port=("x+", "USB-C code"))
     d.part(4, "box", "LDO", 29, 8, D - 2.6, 4.5, 2.5, 1.6, "#495057")
-    d.part(4, "box", "INMP441", W - 2.2, 20, 5, 1.6, 14, 14, PCB_PURPLE, mic=True)
-    d.part(5, "oled", "OLED", 22, 8, 0.6, 27.3, 27.8, 4.1, PCB_BLUE)
+    d.part(4, "box", "INMP441", W - 2.2, 20, 6 if hw747 else 5, 1.6, 14, 14, PCB_PURPLE, mic=True)
+    if hw747:  # 1.3" module centred in the 38.5 mm bay
+        d.part(5, "oled", '1.3" OLED', 19.5 + (W - 19.5 - 35.4) / 2, 6, 0.6, 35.4, 33.5, 4.5, PCB_BLUE)
+    else:
+        d.part(5, "oled", "OLED", 22, 8, 0.6, 27.3, 27.8, 4.1, PCB_BLUE)
     d.part(5, "speaker", "speaker", 39 - 10, H - 5.2, 18 - 10, 20, 4.6, 20, "#444")
     d.part(6, "box", "TTP223", 2.5, H + 0.6, 2.5, 15, 1.6, 11, PCB_RED, pad=True)
     d.part(6, "battery", "16340", 10 - BAT_D / 2, 4, 10 - BAT_D / 2, BAT_D, BAT_L, BAT_D, "#5c7cfa")
+    if hw747:
+        d.steps = [
+            ("Bend the cage", "Two 58 x 44 mm rectangles + a 44 mm divider at 19.5 mm (1.2 mm). Join with four 30 mm "
+             "struts."),
+            ("Seats, clips, grille", "Floor bars, TTP223 seat over the battery, four 0.9 mm grille bars over the "
+             "speaker."),
+            ("Charger, amp, switch", "TP4056 (USB-C to the back) and MAX98357A on the floor bars, GND pads to the "
+             "frame. Switch on the left."),
+            ("HW-747, LDO, mic", "HW-747 on the back bars, USB-C out to the right, its GND pin onto the frame. "
+             "LDO below it. INMP441 on the right side, sound hole OUT. 330k + 330k divider on G2."),
+            ("1.3\" OLED + speaker", "1.3\" OLED (35.4 x 33.5) on four posts, centred in the 38.5 mm bay. Speaker "
+             "under the grille, facing up."),
+            ("Touch pad + battery", "TTP223 on top of the battery bay. Battery in, check polarity, switch on, flash, "
+             "test."),
+        ]
+        return d
     d.steps = [
         ("Bend the cage", "Two 56 x 44 mm rectangles + a 44 mm divider each (1.2 mm). Join with four 30 mm struts."),
         ("Seats, clips, grille", "Floor bars, TTP223 seat over the battery, four 0.9 mm grille bars over the speaker."),
@@ -874,6 +904,7 @@ def case_sheet(d, fname):
     ax.text(0.05, 0.93, "Where each part sits", fontsize=12, weight="bold", color=INK, transform=ax.transAxes)
     where = {"OLED": "front, right of the divider", "16340": "front-left bay, in 2 rings",
              "ESP32-C3": "back wall, USB-C to the right", "XIAO S3": "back wall, USB-C to the right",
+             "HW-747": "back wall, USB-C out the right side", '1.3" OLED': "front, centred right of the divider",
              "LDO": "back wall, under the board", "TP4056": "on the floor bars",
              "MAX98357A": "floor, front", "switch": "side wall, knob out", "TTP223": "on top = Coco's head",
              "INMP441": "right wall, hole facing out", "speaker": "under the top grille, up"}
@@ -1002,7 +1033,7 @@ def bending_template(designs):
 # ============================================== size + case dimension sheets
 
 PART_SIZES = {  # real module sizes in mm (w x h x thickness), shown on the size sheet
-    "OLED": "27.3 x 27.8 x 4.1", "ESP32-C3": "22.5 x 18 x 3.6", "XIAO S3": "21 x 17.8 x 3.4",
+    "OLED": "27.3 x 27.8 x 4.1", '1.3" OLED': "35.4 x 33.5 x 4.5", "HW-747": "22.5 x 18 x 3.6", "ESP32-C3": "22.5 x 18 x 3.6", "XIAO S3": "21 x 17.8 x 3.4",
     "TP4056": "17 x 12 x 3.6", "TTP223": "15 x 11 x 1.6", "16340": "Ø16 x 34", "switch": "8.6 x 3.6 x 4",
     "LDO": "4.5 x 2.5 (SOT-89)", "MAX98357A": "19.3 x 17.8 x 3", "INMP441": "14 x 14 x 1.6", "speaker": "Ø20 x 4.6",
 }
@@ -1233,13 +1264,14 @@ def main():
     voice_s3_wiring(four_mb=True)
     voice_s3_wiring(devkit=True)
     dt, dv, ds = touch_design(), voice_design(), voice_design(s3=True)
-    for d in (dt, dv, ds):
+    dh = voice_design(s3=True, hw747=True)
+    for d in (dt, dv, ds, dh):
         case_sheet(d, f"{d.slug}_case.png")
         assembly_sheet(d, f"{d.slug}_assembly.png")
         size_sheet(d)
         case_dims_sheet(d)
     overview(dt, dv, ds)
-    bending_template([dt, dv, ds])
+    bending_template([dt, dv, ds, dh])
 
 
 if __name__ == "__main__":
