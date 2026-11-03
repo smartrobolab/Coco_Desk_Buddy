@@ -1,5 +1,6 @@
 /*
-  COCO TOUCH - a tiny brass desk buddy (ESP32-C3 Super Mini + 0.96" OLED + TTP223)
+  COCO TOUCH - a tiny brass desk buddy (ESP32-C3 Super Mini or HW-747 ESP32-S3
+  Super Mini + 0.96" SSD1306 or 1.3" SH1106 OLED + TTP223)
 
   Coco lives on the OLED as a pair of animated eyes (Kibo's face engine:
   kibo_faces.cpp). Touch the pad on its head:
@@ -24,9 +25,11 @@
 
   First boot (nothing saved yet) starts the phone setup by itself. Defaults and
   pins: coco_config.h.   Wiring: coco_touch/images/coco_touch_wiring.png
-  Board package: "esp32" by Espressif 3.x, board "ESP32C3 Dev Module",
+  Board package: "esp32" by Espressif 3.x, board "ESP32C3 Dev Module" (C3) or
+  "ESP32S3 Dev Module" with Flash Size 4MB and PSRAM "QSPI PSRAM" (HW-747),
   USB CDC On Boot "Enabled", Partition Scheme "Huge APP (3MB No OTA/1MB SPIFFS)"
   (the default 1.2 MB app slot is too small). No extra libraries.
+  The board is picked from the chip, the screen with OLED_SH1106 in coco_config.h.
 */
 
 #include <Arduino.h>
@@ -197,6 +200,20 @@ coco::Weather currentWeather(time_t* at = nullptr) {
   return w;
 }
 
+// --------------------------------------------------------------------- LED
+// Lights while the head is touched. C3: blue LED on GPIO8 (active LOW).
+// HW-747: no plain LED, only a WS2812 RGB LED on GPIO48, so it glows dim green.
+void setLed(bool on) {
+  static int8_t last = -1;
+  if (last == (int8_t)on) return;  // the RGB LED needs a whole data frame per change
+  last = on;
+#if LED_IS_RGB
+  rgbLedWrite(PIN_LED, 0, on ? LED_RGB_LEVEL : 0, 0);
+#else
+  digitalWrite(PIN_LED, on ? LOW : HIGH);
+#endif
+}
+
 // -------------------------------------------------------------- deep sleep
 
 void goToSleep() {
@@ -214,11 +231,17 @@ void goToSleep() {
   oled.power(false);
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
-  digitalWrite(PIN_LED, HIGH);
+  setLed(false);
   // waking needs the pad released first, otherwise Coco wakes up at once
   while (digitalRead(PIN_TOUCH) == HIGH) delay(10);
   delay(200);
+#if CONFIG_IDF_TARGET_ESP32S3
+  // S3: wake on the RTC GPIO going HIGH (ext0). Only RTC GPIOs 0-21 can do this.
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_TOUCH, 1);
+#else
+  // C3: no ext0/ext1, but GPIO0-5 can wake it from deep sleep directly.
   esp_deep_sleep_enable_gpio_wakeup(1ULL << PIN_TOUCH, ESP_GPIO_WAKEUP_GPIO_HIGH);
+#endif
   esp_deep_sleep_start();
 }
 
@@ -460,7 +483,7 @@ void onLongRelease() {
 
 void updateTouch(uint32_t now) {
   bool down = digitalRead(PIN_TOUCH) == HIGH;
-  digitalWrite(PIN_LED, down ? LOW : HIGH);
+  setLed(down);
 
   if (down && !wasDown) {
     pressAt = now;
@@ -695,8 +718,10 @@ void setup() {
   setCpuFrequencyMhz(80);  // plenty for 25 fps faces, ~30% less current than 160 MHz
   Serial.begin(115200);
   pinMode(PIN_TOUCH, INPUT);  // TTP223 drives the line itself
+#if !LED_IS_RGB
   pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, HIGH);
+#endif
+  setLed(false);
   analogSetPinAttenuation(PIN_BATTERY, ADC_11db);
   loadSettings();
   setenv("TZ", settings.tz.c_str(), 1);  // local time also right after a deep sleep
@@ -734,7 +759,8 @@ void setup() {
   } else {
     xTaskCreate(netTask, "coco_net", 8192, nullptr, 1, nullptr);
   }
-  Serial.printf("Coco Touch %s ready (%s%s)\n", kVersion, fromSleep ? "woke from sleep" : "power on",
+  Serial.printf("Coco Touch %s on %s, %s ready (%s%s)\n", kVersion, BOARD_NAME,
+                OLED_SH1106 ? "SH1106" : "SSD1306", fromSleep ? "woke from sleep" : "power on",
                 setupMode ? ", Wi-Fi setup" : "");
 }
 

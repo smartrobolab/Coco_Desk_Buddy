@@ -2,7 +2,7 @@
 
 The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch and shows the time and weather. No speaker, no microphone.
 
-**Frame:** 52 x 40 x 20 mm  ·  **Board:** ESP32-C3 Super Mini  ·  **Firmware:** Arduino ([firmware/coco_touch](firmware/coco_touch))  ·  **Battery life:** about a day, weeks in deep sleep
+**Frame:** 52 x 40 x 20 mm  ·  **Board:** ESP32-C3 Super Mini (or HW-747 ESP32-S3 Super Mini)  ·  **Screen:** 0.96" SSD1306 (or 1.3" SH1106)  ·  **Firmware:** Arduino ([firmware/coco_touch](firmware/coco_touch))  ·  **Battery life:** about a day, weeks in deep sleep
 
 <p align="center">
   <img src="images/coco_touch_render.png" width="49%" alt="Coco Touch, front">
@@ -26,6 +26,8 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | [cad/coco_touch_full.stl](cad/coco_touch_full.stl) | 3D model, frame + all parts |
 | [cad/coco_touch_frame.stl](cad/coco_touch_frame.stl) | 3D model, brass frame only |
 | [firmware/coco_touch/](firmware/coco_touch) | Arduino sketch (this version's firmware) |
+| [firmware/release/](firmware/release) | ready-made binaries, one per board + screen (flash at 0x0) |
+| [firmware/build.sh](firmware/build.sh) | builds all four binaries with arduino-cli |
 
 ## Parts
 
@@ -38,7 +40,7 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | 3.7 V Li-ion 16340 | Ø16 x 34 mm | |
 | 3.3 V LDO, 3-pin SMD (ME6211C33 / RT9080-33) + 2 x 1 µF | SOT-23 / SOT-89 | **not** AMS1117 |
 | slide switch | 4 mm knob | |
-| 1 MΩ, 330 kΩ, 100 nF | | battery sense |
+| 1 MΩ, 330 kΩ, 100 nF | | battery sense (HW-747: 2 x 330 kΩ, 100 nF) |
 | 1.2 mm brass wire | ~70 cm | frame, seats, battery rings |
 | 0.9 mm brass wire | ~40 cm | wires, OLED posts |
 
@@ -58,6 +60,22 @@ The simplest Coco: a pair of animated eyes on a 0.96" OLED that reacts to touch 
 | GND | brass frame |
 
 Power path: battery → TP4056 (B+/B-) → OUT+ → slide switch → **BAT_SW** → LDO → 3V3.
+
+### Other board and screen
+
+The firmware also runs on the **HW-747 ESP32-S3 Super Mini** (4 MB flash, 2 MB PSRAM) and drives a **1.3" SH1106** OLED instead of the 0.96" SSD1306, in any combination. The board is picked automatically from the chip; the HW-747 uses other GPIOs (the same as [Coco Voice S3 HW-747](../coco_voice_s3/README.md)) and a different battery divider. The diagrams above show the C3 only.
+
+| HW-747 pin | Goes to |
+|---|---|
+| 1 | TTP223 I/O (HIGH = touched, wakes from deep sleep) |
+| 2 | battery sense: BAT_SW → 330 kΩ → pin 2 → 330 kΩ → GND, 100 nF across the bottom 330 kΩ (Vbat / 2) |
+| 5 / 6 | OLED SDA / SCL |
+| 48 | on-board RGB LED (glows dim green while touched) |
+| 3V3 | 3.3 V LDO output: OLED, TTP223 |
+| 5V | not connected |
+| GND | brass frame |
+
+For the HW-747, use two 330 kΩ resistors for the divider instead of 1 MΩ + 330 kΩ. The 1.3" OLED (35.4 x 33.5 mm) is wider than the 0.96" one, so check that it fits your frame (the HW-747 case of [Coco Voice S3](../coco_voice_s3/README.md) has a 38.5 mm screen bay).
 
 ## Size
 
@@ -88,10 +106,47 @@ Read [../shared/brass-tips.md](../shared/brass-tips.md) first (tools, soldering,
 
 ## Firmware
 
-1. Arduino IDE: install the **esp32 by Espressif** board package (3.x).
+### Ready-made binaries (no Arduino needed)
+
+Pick the file for your board and screen from [firmware/release/](firmware/release):
+
+| Board | 0.96" SSD1306 | 1.3" SH1106 |
+|---|---|---|
+| ESP32-C3 Super Mini | [coco_touch_c3_096-merged.bin](firmware/release/coco_touch_c3_096-merged.bin) | [coco_touch_c3_13-merged.bin](firmware/release/coco_touch_c3_13-merged.bin) |
+| HW-747 ESP32-S3 Super Mini | [coco_touch_hw747_096-merged.bin](firmware/release/coco_touch_hw747_096-merged.bin) | [coco_touch_hw747_13-merged.bin](firmware/release/coco_touch_hw747_13-merged.bin) |
+
+Each file is a complete image (bootloader, partitions, app), flashed at **0x0**. Switch OFF and plug the board's USB-C.
+
+- **From the browser:** open [espressif.github.io/esptool-js](https://espressif.github.io/esptool-js/) in Chrome or Edge, **Connect**, pick the port, set Flash Address **0x0**, choose the file, **Program**.
+- **From a terminal** (`pip install esptool`):
+
+  ```bash
+  python3 -m esptool --chip esp32c3 -p /dev/ttyACM0 -b 921600 write_flash 0x0 coco_touch_c3_096-merged.bin
+  python3 -m esptool --chip esp32s3 -p /dev/ttyACM0 -b 921600 write_flash 0x0 coco_touch_hw747_096-merged.bin
+  ```
+
+  Use `--chip esp32c3` for the `c3_` files and `--chip esp32s3` for the `hw747_` files. On Windows the port is `COM3` etc. If the board isn't found, hold BOOT while plugging it in.
+
+Flashing a merged image clears the saved Wi-Fi settings, so Coco starts the phone setup again.
+
+### Arduino IDE
+
+1. Install the **esp32 by Espressif** board package (3.x).
 2. Open [firmware/coco_touch/coco_touch.ino](firmware/coco_touch/coco_touch.ino).
-3. Tools: board **ESP32C3 Dev Module**, **USB CDC On Boot: Enabled**, **Partition Scheme: Huge APP (3MB No OTA/1MB SPIFFS)**.
-4. Switch OFF, plug the C3's USB-C, upload. No extra libraries are needed, and you don't have to edit any code.
+3. **1.3" SH1106 screen only:** in `coco_config.h` change `#define OLED_SH1106 0` to `#define OLED_SH1106 1`. That is the only line to edit; the board pins follow from the board you pick.
+4. Tools:
+   - ESP32-C3 Super Mini: board **ESP32C3 Dev Module**, **USB CDC On Boot: Enabled**, **Partition Scheme: Huge APP (3MB No OTA/1MB SPIFFS)**.
+   - HW-747: board **ESP32S3 Dev Module**, **USB CDC On Boot: Enabled**, **Flash Size: 4MB**, **PSRAM: QSPI PSRAM**, **Partition Scheme: Huge APP (3MB No OTA/1MB SPIFFS)**.
+5. Switch OFF, plug the board's USB-C, upload. No extra libraries are needed.
+
+### Command line
+
+`firmware/build.sh` builds all four binaries with arduino-cli (esp32 core 3.3.x) and puts them in `firmware/release/`. `firmware/build.sh hw747_13` builds just one (`c3_096`, `c3_13`, `hw747_096`, `hw747_13`). By hand:
+
+```bash
+arduino-cli compile -b esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=4M,PSRAM=enabled,PartitionScheme=huge_app \
+  --build-property "compiler.cpp.extra_flags=-DOLED_SH1106=1" coco_touch/firmware/coco_touch
+```
 
 ### Wi-Fi setup from your phone (no code changes)
 
@@ -129,8 +184,10 @@ When left alone it eats a cookie, plays with a ball, dances, sings, yawns, and s
 |---|---|
 | Black screen, Serial says "OLED not found" | SDA/SCL swapped? OLED VCC on 3V3? Some modules are 0x3D: change `OLED_ADDR` in coco_config.h |
 | Face upside down | `OLED_ROTATE_180` in coco_config.h |
-| Touch does nothing | TTP223 I/O on GPIO0? Its LED should light when touched. Brass touching the pad? |
-| Status says "USB power" | divider not on GPIO1, or the 100 nF is missing |
+| Touch does nothing | TTP223 I/O on GPIO0 (HW-747: pin 1)? Its LED should light when touched. Brass touching the pad? |
+| Status says "USB power" | divider not on GPIO1 (HW-747: pin 2), or the 100 nF is missing |
+| 1.3" screen shows noise or a 2-pixel stripe at the edge | it is an SH1106: use the `_13` binary or set `OLED_SH1106 1` |
+| 0.96" screen shows only part of the picture | it is an SSD1306: use the `_096` binary or set `OLED_SH1106 0` |
 | Resets when Wi-Fi starts | wrong LDO (AMS1117/XC6206), missing capacitors, or low battery |
 | Phone doesn't open the setup page | open `192.168.4.1` in the browser while joined to Coco-XXXX; turn off mobile data for a moment |
-| "Can't join" after setup | wrong password, or a 5 GHz-only network (the C3 is 2.4 GHz only) |
+| "Can't join" after setup | wrong password, or a 5 GHz-only network (the C3 and S3 are 2.4 GHz only) |
