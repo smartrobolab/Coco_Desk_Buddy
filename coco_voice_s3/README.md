@@ -153,8 +153,14 @@ Before soldering, check every part with a multimeter and the test sketch: see [T
 
 #### HW-747 firmware
 
-- Ready-made: flash [firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin](firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin) at **0x0**.
-- Build it yourself: `SIMPLE=1 coco_voice_s3/firmware/build.sh`, then `coco_voice_s3/firmware/flash.sh /dev/ttyACM0`.
+Ready-made, flash at **0x0** (pick your screen):
+
+| Screen | File | Build it yourself |
+|---|---|---|
+| 1.3" SH1106 | [firmware/release/coco_voice_s3_hw747_13-merged.bin](firmware/release/coco_voice_s3_hw747_13-merged.bin) | `BUILD=coco-s3-4mb coco_voice_s3/firmware/build.sh` (or `SIMPLE=1`) |
+| 0.96" SSD1306 | [firmware/release/coco_voice_s3_hw747_096-merged.bin](firmware/release/coco_voice_s3_hw747_096-merged.bin) | `BUILD=coco-s3-4mb-096 coco_voice_s3/firmware/build.sh` |
+
+Then `coco_voice_s3/firmware/flash.sh /dev/ttyACM0`, or `python3 -m esptool --chip esp32s3 write-flash 0x0 <file>`. The screen is chosen by `CONFIG_COCO_OLED_SH1106` in each build of `firmware/boards/coco/s3/config.json`.
 
 ### First start
 

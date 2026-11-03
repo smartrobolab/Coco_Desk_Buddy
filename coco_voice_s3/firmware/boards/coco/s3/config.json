@@ -24,6 +24,16 @@
                 "CONFIG_SPIRAM_MODE_QUAD=y",
                 "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
                 "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
+                "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+                "CONFIG_COCO_OLED_SH1106=y"
+            ]
+        },
+        {
+            "name": "coco-s3-4mb-096",
+            "sdkconfig_append": [
+                "CONFIG_SPIRAM_MODE_QUAD=y",
+                "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
                 "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y"
             ]
         }

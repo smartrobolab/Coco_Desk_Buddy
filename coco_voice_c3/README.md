@@ -92,10 +92,19 @@ Keep the I2S wires (GPIO6, 7, 3, 10) short and apart, and away from the speaker 
 
 ### Flash the ready-made firmware (no tools)
 
-1. Open <https://espressif.github.io/esptool-js/> in Chrome or Edge and connect the C3 (switch OFF).
-2. Flash [firmware/release/coco_voice_c3-merged.bin](firmware/release/coco_voice_c3-merged.bin) at address **0x0**.
+Pick the file for your screen:
 
-Or from a terminal: `python3 -m esptool --chip esp32c3 write-flash 0x0 coco_voice_c3/firmware/release/coco_voice_c3-merged.bin`
+| Screen | File | Build name |
+|---|---|---|
+| 0.96" SSD1306 | [firmware/release/coco_voice_c3_096-merged.bin](firmware/release/coco_voice_c3_096-merged.bin) | `coco-c3` |
+| 1.3" SH1106 | [firmware/release/coco_voice_c3_13-merged.bin](firmware/release/coco_voice_c3_13-merged.bin) | `coco-c3-13` |
+
+1. Open <https://espressif.github.io/esptool-js/> in Chrome or Edge and connect the C3 (switch OFF).
+2. Flash the file at address **0x0**.
+
+Or from a terminal: `python3 -m esptool --chip esp32c3 write-flash 0x0 coco_voice_c3/firmware/release/coco_voice_c3_096-merged.bin`
+
+A 1.3" OLED on the 0.96" firmware shows a shifted picture with a line of noise at the edge (and the other way round): flash the other file.
 
 ### Build it yourself
 

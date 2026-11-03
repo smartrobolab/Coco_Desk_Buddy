@@ -10,6 +10,15 @@
                 "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
                 "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y"
             ]
+        },
+        {
+            "name": "coco-c3-13",
+            "sdkconfig_append": [
+                "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
+                "CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y",
+                "CONFIG_COCO_OLED_SH1106=y"
+            ]
         }
     ]
 }

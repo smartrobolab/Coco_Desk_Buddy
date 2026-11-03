@@ -6,6 +6,7 @@
 #   WAKE=wn9s_hijason coco_voice_c3/firmware/build.sh   # another wake word (or WAKE=disabled)
 #   LANG_CODE=hi-IN coco_voice_c3/firmware/build.sh     # UI / voice-prompt language
 #   JOBS=6 coco_voice_c3/firmware/build.sh              # use only 6 CPU cores (less RAM)
+#   BUILD=coco-c3-13 coco_voice_c3/firmware/build.sh    # 1.3" SH1106 OLED (default coco-c3: 0.96")
 #
 # Output: xiaozhi-esp32/build/*.bin next to this script (flash with ./flash.sh)
 set -euo pipefail
@@ -31,7 +32,7 @@ python3 tools/install_coco.py xiaozhi-esp32
 docker run --rm "${CPU_ARGS[@]}" -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$FW_DIR/xiaozhi-esp32:/project" -w /project "$IDF_IMAGE" \
   bash -c "git config --global --add safe.directory '*' && \
-           python3 scripts/build.py coco/c3 --language $LANG_CODE --wake-word ${WAKE:-wn9s_hiesp}"
+           python3 scripts/build.py coco/c3 --name ${BUILD:-coco-c3} --language $LANG_CODE --wake-word ${WAKE:-wn9s_hiesp}"
 
 echo
-echo "Built coco/c3. Flash it with:  $FW_DIR/flash.sh /dev/ttyACM0"
+echo "Built coco/c3 (${BUILD:-coco-c3}). Flash it with:  $FW_DIR/flash.sh /dev/ttyACM0"

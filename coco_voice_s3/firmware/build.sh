@@ -7,6 +7,7 @@
 #   LANG_CODE=hi-IN coco_voice_s3/firmware/build.sh     # UI / voice-prompt language
 #   JOBS=6 coco_voice_s3/firmware/build.sh              # use only 6 CPU cores (less RAM)
 #   SIMPLE=1 coco_voice_s3/firmware/build.sh            # simple build for 4 MB S3 boards
+#   BUILD=coco-s3-4mb-096 coco_voice_s3/firmware/build.sh  # 4 MB HW-747 with a 0.96" SSD1306
 #                                                       # (Super Mini, N4R2): wake word "Hi ESP"
 #
 # Output: xiaozhi-esp32/build/*.bin next to this script (flash with ./flash.sh)
@@ -20,8 +21,13 @@ XIAOZHI_REF="${XIAOZHI_REF:-d395220a83fb7a16ea5dc761c08a4816177cc880}"
 LANG_CODE="${LANG_CODE:-en-US}"
 # JOBS=6 limits the build to 6 CPU cores. Use it if Docker runs out of memory
 # (a full-speed build on a 16-core laptop can take more RAM than Docker Desktop has).
-BUILD_ARGS="--name coco-s3"
-if [ -n "${SIMPLE:-}" ]; then BUILD_ARGS="--name coco-s3-4mb --wake-word ${WAKE:-wn9_hiesp}"; fi
+# Which build of boards/coco/s3/config.json: coco-s3 (XIAO, 8 MB, "Hey Coco"), coco-s3-4mb
+# (HW-747, 1.3" SH1106) or coco-s3-4mb-096 (HW-747, 0.96" SSD1306). SIMPLE=1 = coco-s3-4mb.
+if [ -n "${SIMPLE:-}" ]; then BUILD="${BUILD:-coco-s3-4mb}"; fi
+BUILD="${BUILD:-coco-s3}"
+BUILD_ARGS="--name $BUILD"
+# the 4 MB builds have no room for "Hey Coco": Espressif's "Hi ESP" wake word instead
+case "$BUILD" in coco-s3-4mb*) BUILD_ARGS="$BUILD_ARGS --wake-word ${WAKE:-wn9_hiesp}" ;; esac
 CPU_ARGS=()
 if [ -n "${JOBS:-}" ]; then CPU_ARGS=(--cpuset-cpus "0-$((JOBS - 1))"); fi
 
@@ -38,4 +44,4 @@ docker run --rm "${CPU_ARGS[@]}" -u "$(id -u):$(id -g)" -e HOME=/tmp \
            python3 scripts/build.py coco/s3 --language $LANG_CODE $BUILD_ARGS"
 
 echo
-echo "Built coco/s3. Flash it with:  $FW_DIR/flash.sh /dev/ttyACM0"
+echo "Built coco/s3 ($BUILD). Flash it with:  $FW_DIR/flash.sh /dev/ttyACM0"

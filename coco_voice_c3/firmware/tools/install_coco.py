@@ -7,7 +7,8 @@ The board is whichever one this firmware folder contains (boards/coco/c3 or
 boards/coco/s3). Safe to run again after every change:
   1. copies boards/coco/<v> and shared/ -> xiaozhi-esp32/main/boards/coco/
   2. copies partitions/* (S3 only: 8 MB layout) -> xiaozhi-esp32/partitions/
-  3. registers the board in main/Kconfig.projbuild and main/CMakeLists.txt
+  3. registers the board in main/Kconfig.projbuild and main/CMakeLists.txt, and adds the
+     COCO_OLED_SH1106 screen option (on = 1.3" SH1106, off = 0.96" SSD1306)
   4. replaces the "start listening" popup sound with the "aaaa?" wake sound (original kept as .orig)
 """
 import os
@@ -42,6 +43,24 @@ def patch_kconfig(path, v):
     text = text[:end] + block + text[end:]
     open(path, "w", encoding="utf-8").write(text)
     return "registered"
+
+
+def patch_screen_option(path):
+    """Adds the screen choice after the board list. A build turns it on with
+    CONFIG_COCO_OLED_SH1106=y in its config.json sdkconfig_append; config.h reads it."""
+    text = open(path, encoding="utf-8").read()
+    if "config COCO_OLED_SH1106\n" in text:
+        return "already there"
+    start = text.index("choice BOARD_TYPE")
+    end = text.index("endchoice", start) + len("endchoice")
+    block = ('\n\nconfig COCO_OLED_SH1106\n'
+             '    bool "Coco: 1.3\\" SH1106 OLED (off: 0.96\\" SSD1306)"\n'
+             '    default n\n'
+             '    help\n'
+             '        The 1.3" OLED modules use the SH1106 controller, the 0.96" ones the SSD1306.\n')
+    text = text[:end] + block + text[end:]
+    open(path, "w", encoding="utf-8").write(text)
+    return "added"
 
 
 def patch_cmake(path, v):
@@ -82,7 +101,8 @@ def main():
     else:
         print("[2/4] no custom partitions (uses XiaoZhi's 4 MB layout)")
 
-    print("[3/4] Kconfig.projbuild:", patch_kconfig(os.path.join(xz, "main", "Kconfig.projbuild"), v),
+    kconfig = os.path.join(xz, "main", "Kconfig.projbuild")
+    print("[3/4] Kconfig.projbuild:", patch_kconfig(kconfig, v), "| screen option:", patch_screen_option(kconfig),
           "| CMakeLists.txt:", patch_cmake(os.path.join(xz, "main", "CMakeLists.txt"), v))
 
     popup = os.path.join(xz, "main", "assets", "common", "popup.ogg")

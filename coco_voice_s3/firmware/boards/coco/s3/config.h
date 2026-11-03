@@ -20,8 +20,9 @@
 #define KIBO_I2C_SDA_PIN GPIO_NUM_5      // D4
 #define KIBO_I2C_SCL_PIN GPIO_NUM_6      // D5
 
-// ---- Display: 0.96" SSD1306; the 4 MB build (coco-s3-4mb) drives a 1.3" SH1106 ----
-#if CONFIG_ESPTOOLPY_FLASHSIZE_4MB
+// ---- Display: 0.96" SSD1306, or 1.3" SH1106 when the build sets CONFIG_COCO_OLED_SH1106 ----
+// (coco-s3 and coco-s3-4mb-096: 0.96"; coco-s3-4mb: 1.3", see config.json)
+#if CONFIG_COCO_OLED_SH1106
 #define KIBO_OLED_SH1106 1
 #else
 #define KIBO_OLED_SH1106 0

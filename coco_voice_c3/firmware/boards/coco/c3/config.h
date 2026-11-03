@@ -20,7 +20,12 @@
 #define KIBO_I2C_SCL_PIN GPIO_NUM_5
 
 // ---- Display: 0.96" 128x64 SSD1306, 4-pin I2C ----
+// 0.96" SSD1306 (build coco-c3) or 1.3" SH1106 (build coco-c3-13): set per build in config.json
+#if CONFIG_COCO_OLED_SH1106
+#define KIBO_OLED_SH1106 1
+#else
 #define KIBO_OLED_SH1106 0
+#endif
 #define DISPLAY_I2C_ADDR 0x3C
 #define DISPLAY_WIDTH    128
 #define DISPLAY_HEIGHT   64

@@ -114,6 +114,6 @@ The numbers are an example. Your microphone levels will be different; what matte
 
 ## 3. Then the real firmware
 
-When every test passes, solder the parts into the frame ([assembly steps](images/coco_voice_s3_hw747_esp32s3_assembly.png)). Then run multimeter checks 5 and 12 again and flash [firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin](firmware/release/coco_voice_s3_hw747_esp32s3-merged.bin) at **0x0**. Coco shows a QR code for Wi-Fi setup, and after setup it answers to **"Hi ESP"** or a double-tap.
+When every test passes, solder the parts into the frame ([assembly steps](images/coco_voice_s3_hw747_esp32s3_assembly.png)). Then run multimeter checks 5 and 12 again and flash the HW-747 firmware for your screen at **0x0**: [coco_voice_s3_hw747_13-merged.bin](firmware/release/coco_voice_s3_hw747_13-merged.bin) (1.3") or [coco_voice_s3_hw747_096-merged.bin](firmware/release/coco_voice_s3_hw747_096-merged.bin) (0.96"). Coco shows a QR code for Wi-Fi setup, and after setup it answers to **"Hi ESP"** or a double-tap.
 
 Redraw the test sheets with `python3 tools/make_test_diagrams.py`.
