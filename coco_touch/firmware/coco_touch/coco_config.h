@@ -19,11 +19,24 @@
 
 // Default weather location (decimal degrees) and its name on the card.
 // The phone setup page replaces it with the city you type.
-// Weather comes from open-meteo.com (free, no API key).
+// Weather comes from OpenWeatherMap when an API key is set (on the phone setup
+// page, or OWM_API_KEY below), otherwise from open-meteo.com (free, no key).
+// Coco also falls back to open-meteo whenever OpenWeatherMap does not answer.
 #define WEATHER_LAT   35.6812
 #define WEATHER_LON   139.7671
 #define WEATHER_PLACE "Tokyo"
 #define WEATHER_REFRESH_MIN 30   // Wi-Fi switches on only for each refresh
+
+// OpenWeatherMap API key (https://home.openweathermap.org/api_keys). Don't type
+// it here if you share this code: put `#define OWM_API_KEY "your key"` in a file
+// coco_secrets.h next to this one (git ignores it), or enter it on the phone
+// setup page. A key typed on the setup page wins over this default.
+#if !defined(COCO_NO_SECRETS) && __has_include("coco_secrets.h")  // build.sh sets COCO_NO_SECRETS for public files
+#include "coco_secrets.h"
+#endif
+#ifndef OWM_API_KEY
+#define OWM_API_KEY ""
+#endif
 
 // ------------------------------------------------------------- behaviour
 #define NAP_AFTER_MIN        5    // no touch for this long -> Coco falls asleep (Zzz)

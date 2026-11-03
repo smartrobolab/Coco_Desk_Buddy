@@ -26,6 +26,20 @@ Sky skyFromWmo(int code) {
   return Sky::Unknown;
 }
 
+Sky skyFromOwm(int id) {
+  // https://openweathermap.org/weather-conditions: 2xx storm, 3xx drizzle, 5xx rain,
+  // 6xx snow, 7xx mist/fog/haze, 800 clear, 801-802 few/scattered clouds, 803-804 cloudy
+  if (id >= 200 && id < 300) return Sky::Thunder;
+  if (id >= 300 && id < 400) return Sky::Drizzle;
+  if (id >= 500 && id < 600) return Sky::Rain;
+  if (id >= 600 && id < 700) return Sky::Snow;
+  if (id >= 700 && id < 800) return Sky::Fog;
+  if (id == 800) return Sky::Clear;
+  if (id == 801 || id == 802) return Sky::PartlyCloudy;
+  if (id == 803 || id == 804) return Sky::Cloudy;
+  return Sky::Unknown;
+}
+
 const char* skyName(Sky s) {
   switch (s) {
     case Sky::Clear: return "Clear";
@@ -132,6 +146,46 @@ bool parseOpenMeteo(const char* json, Weather& out) {
   w.utcOffsetSec = (int)off;
   w.valid = true;
   out = w;
+  return true;
+}
+
+bool parseOpenWeatherMap(const char* json, Weather& out) {
+  if (!json) return false;
+  const char* cond = strstr(json, "\"weather\":");
+  const char* main = strstr(json, "\"main\":{");  // the object, not "main":"Clear"
+  if (!cond || !main) return false;
+  Weather w;
+  float id = -1, hum = 0, off = 0;
+  if (!number(cond, "id", id)) return false;
+  if (!number(main, "temp", w.tempC)) return false;
+  w.hiC = w.loC = w.tempC;
+  number(main, "temp_max", w.hiC);
+  number(main, "temp_min", w.loC);
+  number(main, "humidity", hum);
+  w.humidity = (int)lroundf(hum);
+  w.sky = skyFromOwm((int)id);
+  const char* icon = strstr(cond, "\"icon\":\"");  // e.g. "01d" (day) or "01n" (night)
+  w.isDay = !(icon && icon[10] == 'n');
+  w.hasOffset = number(json, "timezone", off);  // seconds east of UTC, DST included
+  w.utcOffsetSec = (int)off;
+  w.valid = true;
+  out = w;
+  return true;
+}
+
+bool parseOwmGeocode(const char* json, float& lat, float& lon, char* name, int nameLen) {
+  if (!json || !strchr(json, '{')) return false;  // "[]": city not found
+  if (!number(json, "lat", lat) || !number(json, "lon", lon)) return false;
+  if (name && nameLen > 0) {
+    name[0] = 0;
+    const char* p = strstr(json, "\"name\":\"");  // the English name comes before local_names
+    if (p) {
+      p += 8;
+      int n = 0;
+      while (*p && *p != '"' && n < nameLen - 1) name[n++] = *p++;
+      name[n] = 0;
+    }
+  }
   return true;
 }
 
@@ -284,7 +338,27 @@ void drawStatus(Canvas& c, int batteryPct, int batteryMv, const char* wifi, int 
   else if (weatherAgeMin < 120) snprintf(line, sizeof(line), "Weather %d min ago", weatherAgeMin);
   else snprintf(line, sizeof(line), "Weather %d h ago", weatherAgeMin / 60);
   c.text(2, 47, line, kFontSmall);
-  c.text(2, 56, "tap: next  2x tap: face", kFontSmall);
+  c.text(2, 56, "tap: next  2x tap: menu", kFontSmall);
+}
+
+void drawMenu(Canvas& c, const char* const* items, int count, int selected, const char* clock) {
+  c.text(2, 0, "Menu", kFontMedium);
+  if (clock && clock[0]) c.text(128 - c.textWidth(clock, kFontSmall) - 1, 2, clock, kFontSmall);
+  c.hline(0, 127, 12);
+  // 5 rows of 10 px under the title; scroll so the selected row is always on screen
+  constexpr int kRows = 5, kRowH = 10, kTop = 14;
+  int first = clampi(selected - kRows / 2, 0, count > kRows ? count - kRows : 0);
+  for (int r = 0; r < kRows && first + r < count; r++) {
+    int i = first + r, y = kTop + r * kRowH;
+    c.text(6, y + 1, items[i], kFontSmall);
+    if (i == selected) c.invert(0, y, 124, kRowH);
+  }
+  // scroll bar when the list is longer than the screen
+  if (count > kRows) {
+    int h = kRows * kRowH, barH = h * kRows / count;
+    c.vline(126, kTop, kTop + h - 1);
+    c.rect(125, kTop + (h - barH) * first / (count - kRows), 3, barH);
+  }
 }
 
 void drawHold(Canvas& c, uint32_t held) {

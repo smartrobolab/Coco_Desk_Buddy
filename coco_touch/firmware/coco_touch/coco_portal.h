@@ -82,6 +82,10 @@ void handleRoot() {
   h += "'><input type='checkbox' style='width:auto' onclick=\"p.type=this.checked?'text':'password'\">show</div>";
   h += "<label>City</label><input name='city' value='" + htmlEscape(String(settings.place)) + "' placeholder='e.g. Tokyo'>";
   h += "<small>Time zone is set automatically from the city.</small>";
+  // optional OpenWeatherMap key; the saved key is never sent back to the page
+  h += "<label>OpenWeatherMap API key (optional)</label><input name='owm' autocomplete='off' placeholder='";
+  h += settings.owmKey.length() ? "saved: empty = keep, - = remove" : "empty = free open-meteo weather";
+  h += "'>";
   h += "<button>Save and connect</button></form>";
   h += "<p><a href='/scan'>&#8635; scan again</a></p></div></body></html>";
   server.send(200, "text/html", h);
@@ -97,7 +101,9 @@ void handleSave() {
   }
   String city = server.arg("city");
   city.trim();
-  saveWifi(ssid, server.arg("pass"), city);
+  String owm = server.arg("owm");
+  owm.trim();
+  saveWifi(ssid, server.arg("pass"), city, owm);
   server.send(200, "text/html", String(FPSTR(kHead)) + "<h2>Saved!</h2><p>Coco is joining <b>" + htmlEscape(ssid) +
                                     "</b> now. You can close this page and switch your phone back to your Wi-Fi.</p>"
                                     "<p><small>If Coco can't connect it says so on its screen: hold its head 10 s to come back here.</small></p></div></body></html>");

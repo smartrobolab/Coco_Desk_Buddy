@@ -154,21 +154,47 @@ On first boot, and whenever you **hold Coco's head for 10 seconds**:
 
 1. Coco shows a QR code. Scan it with your phone camera to join Coco's hotspot (**Coco-XXXX**).
 2. The setup page opens by itself. If it doesn't, scan the second QR code or open `192.168.4.1`.
-3. Pick your Wi-Fi from the list (or "Other..." to type a hidden name), type the **password** and your **city**, and tap **Save and connect**.
+3. Pick your Wi-Fi from the list (or "Other..." to type a hidden name), type the **password**, your **city** and, if you have one, your **OpenWeatherMap API key**, and tap **Save and connect**.
 4. Coco restarts and connects. The settings stay saved through power-off and new uploads.
 
-The time zone (including daylight saving) is set automatically from the city. To keep the saved password when you only change the city, leave the password empty. If Coco can't join, it says so on screen: hold its head 10 s to fix it. Double-tap leaves the setup screen without changes.
+The time zone (including daylight saving) is set automatically from the city.
+
+**Weather source.** With an OpenWeatherMap API key ([get one free](https://home.openweathermap.org/api_keys); new keys can take up to 2 hours to start working) Coco uses OpenWeatherMap for the weather and the city lookup; without one it uses open-meteo.com (no key). If OpenWeatherMap doesn't answer (wrong key, outage), Coco falls back to open-meteo, so there is always weather. On the setup page an empty key field keeps the saved key and `-` removes it. The saved key is never shown again on the page.
+
+**Your own builds with a key built in.** Copy `firmware/coco_touch/coco_secrets.example.h` to `coco_secrets.h` and put your key in it (git ignores that file). `PRIVATE=1 firmware/build.sh` then builds into `firmware/private/` (also ignored). The files in `firmware/release/` never contain a key. To keep the saved password when you only change the city, leave the password empty. If Coco can't join, it says so on screen: hold its head 10 s to fix it. Double-tap leaves the setup screen without changes.
 
 ### Touch
 
 | Touch | Coco does |
 |---|---|
 | tap | next face (Neutral → Serious → Sleepy → Crying → Sad → Cute → Kissou → Mini Love → Anime Love → Fire → Angry) |
-| double-tap | info cards: Clock → Weather → Status (tap = next card, double-tap = back) |
+| double-tap | **menu** (see below) |
 | long press (0.8 s) | Love while you hold it |
 | hold 5 s, let go | goodnight, deep sleep (touch to wake) |
 | hold 10 s, let go | Wi-Fi setup |
 | 6+ quick taps | Angry; 10+ = Crying |
+
+### Menu
+
+Double-tap opens the menu. The current time is shown in its title bar.
+
+| In the menu | |
+|---|---|
+| tap | next item |
+| hold ~1 s | open the item |
+| double-tap | close the menu |
+
+| Item | Shows |
+|---|---|
+| Clock & date | the time and the date (tap: next card) |
+| Weather | temperature, today's high / low, humidity and the sky, for your city |
+| Battery | battery % and voltage, Wi-Fi state, how old the weather is |
+| Faces | every face with its name (tap: next face) |
+| Wi-Fi setup (QR) | the phone setup with its QR code (same as holding 10 s) |
+| Sleep | deep sleep, screen off (touch to wake) |
+| Back | back to the face |
+
+On a card or in the face gallery, double-tap goes back to the menu. Untouched for 10-12 s, Coco goes back to its face.
 
 When left alone it eats a cookie, plays with a ball, dances, sings, yawns, and shows the clock and weather. It shows the clock at every full hour. After 5 minutes (1 minute at night) it falls asleep, and after another 30 minutes it powers down until touched. Wi-Fi is on only a few seconds every 30 minutes.
 

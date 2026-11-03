@@ -13,11 +13,23 @@
 #
 # The board pins follow from the chip (coco_config.h); the screen is OLED_SH1106,
 # passed here as -DOLED_SH1106=1.
+#
+# API keys: the files in release/ are public, so they are built WITHOUT
+# coco_touch/coco_secrets.h (no OpenWeatherMap key inside; users enter theirs on
+# the phone setup page). PRIVATE=1 builds with coco_secrets.h into private/,
+# which git ignores: flash those on your own Coco only.
+#   PRIVATE=1 coco_touch/firmware/build.sh hw747_13
 set -euo pipefail
 cd "$(dirname "$0")"
 FW_DIR="$(pwd)"
 SKETCH="$FW_DIR/coco_touch"
-OUT="$FW_DIR/release"
+if [ -n "${PRIVATE:-}" ]; then
+  OUT="$FW_DIR/private"
+  SECRETS=""
+else
+  OUT="$FW_DIR/release"
+  SECRETS="-DCOCO_NO_SECRETS=1"  # coco_config.h then skips coco_secrets.h
+fi
 BUILD="${BUILD_DIR:-${TMPDIR:-/tmp}/coco_touch_build}"
 ALL="c3_096 c3_13 hw747_096 hw747_13"
 
@@ -36,7 +48,7 @@ build() {
   echo "== $name ($fqbn, OLED_SH1106=$sh1106)"
   arduino-cli compile -b "$fqbn" --warnings all \
     --build-path "$BUILD/$name" \
-    --build-property "compiler.cpp.extra_flags=-DOLED_SH1106=$sh1106" \
+    --build-property "compiler.cpp.extra_flags=-DOLED_SH1106=$sh1106 $SECRETS" \
     "$SKETCH"
   mkdir -p "$OUT"
   # The core pads the merged image with 0xFF to the full flash size; drop that

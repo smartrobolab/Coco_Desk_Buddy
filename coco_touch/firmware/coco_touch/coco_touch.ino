@@ -7,8 +7,10 @@
 
     tap            next face (Neutral, Serious, Sleepy, Crying, Sad, Cute, Kissou,
                    Mini Love, Anime Love, Fire, Angry)
-    double-tap     info cards: Clock -> Weather -> Status (tap = next card,
-                   double-tap = back to the face)
+    double-tap     menu: Clock & date, Weather, Battery, Faces, Wi-Fi setup (QR),
+                   Sleep, Back. In the menu: tap = next item, hold ~1 s = open it,
+                   double-tap = close. On a card or the face gallery: tap = next,
+                   double-tap = back to the menu. Untouched for 10-12 s: back to the face.
     long press     Love (petting) while you hold
     hold 5 s       deep sleep, screen off (touch to wake)
     hold 10 s      Wi-Fi setup: Coco shows a QR code, join its hotspot with
@@ -20,8 +22,10 @@
   after DEEP_SLEEP_AFTER_MIN more it powers down until you touch it.
 
   Wi-Fi is on only for a few seconds every WEATHER_REFRESH_MIN minutes to sync
-  the time (NTP) and fetch the weather (open-meteo.com, no API key). The time
-  zone comes from the weather location, so there is nothing to set.
+  the time (NTP) and fetch the weather: OpenWeatherMap when an API key is set
+  (phone setup page or coco_secrets.h), otherwise open-meteo.com (no key); if
+  OpenWeatherMap fails, open-meteo is used. The time zone comes from the
+  weather location, so there is nothing to set.
 
   First boot (nothing saved yet) starts the phone setup by itself. Defaults and
   pins: coco_config.h.   Wiring: coco_touch/images/coco_touch_wiring.png
@@ -119,6 +123,23 @@ uint32_t noticeUntil = 0;
 bool showingCards = false;
 Card card = Card::Clock;
 uint32_t cardSince = 0, cardUntil = 0;
+
+// Menu (double-tap): tap = next item, hold ~1 s = open the item. The items are
+// shown in this order; "Battery" opens the status card (battery, Wi-Fi, weather age).
+enum class MenuItem : uint8_t { Clock, Weather, Battery, Faces, WifiSetup, Sleep, Back, Count };
+const char* const kMenuItems[] = {"Clock & date", "Weather", "Battery", "Faces", "Wi-Fi setup (QR)", "Sleep",
+                                  "Back"};
+static_assert(sizeof(kMenuItems) / sizeof(kMenuItems[0]) == (int)MenuItem::Count, "one label per item");
+constexpr uint32_t kMenuIdleMs = 10000;  // untouched this long -> back to the face
+bool menuOpen = false;
+int menuSel = 0;
+uint32_t menuUntil = 0;
+bool menuTookPress = false;  // this press opened a menu item: no Love when it is let go
+
+// Face gallery (menu > Faces): every face, tap = next, its name at the bottom.
+bool faceShow = false;
+int faceShowIdx = 0;
+uint32_t faceShowSince = 0, faceShowUntil = 0;
 
 Face reactionFace = Face::Neutral;
 uint32_t reactionUntil = 0;
@@ -308,12 +329,42 @@ String urlEncode(const char* s) {
   return o;
 }
 
-// Looks up the typed city once (Open-Meteo geocoding, HTTPS).
+// HTTPS GET for the OpenWeatherMap calls. The API key is in the URL, so never plain
+// HTTP and never printed. The connection is encrypted, but the server certificate is
+// not checked (no CA bundle on the board).
+int owmGet(const String& url, String& body) {
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.setTimeout(8000);
+  if (!http.begin(client, url)) return -1;
+  int code = http.GET();
+  if (code == 200) body = http.getString();
+  http.end();
+  return code;
+}
+
+// Looks up the typed city once: OpenWeatherMap geocoding when a key is set,
+// otherwise (or if that fails) Open-Meteo geocoding. Both over HTTPS.
 void geocode() {
   char place[32];
   portENTER_CRITICAL(&settingsMux);
   memcpy(place, settings.place, sizeof(place));
   portEXIT_CRITICAL(&settingsMux);
+  if (settings.owmKey.length()) {  // only changes on the setup page, which restarts Coco
+    String body;
+    int code = owmGet("https://api.openweathermap.org/geo/1.0/direct?limit=1&q=" + urlEncode(place) +
+                          "&appid=" + settings.owmKey,
+                      body);
+    float lat, lon;
+    char name[32];
+    if (code == 200 && coco::parseOwmGeocode(body.c_str(), lat, lon, name, sizeof(name))) {
+      saveLocation(lat, lon, name[0] ? String(name) : String(place));
+      Serial.printf("city (OpenWeatherMap): %s -> %.4f, %.4f\n", name, lat, lon);
+      return;
+    }
+    Serial.printf("city (OpenWeatherMap): HTTP %d%s, trying open-meteo\n", code, code == 401 ? " bad API key" : "");
+  }
   String url = "https://geocoding-api.open-meteo.com/v1/search?count=1&format=json&name=" + urlEncode(place);
   WiFiClientSecure client;
   client.setInsecure();  // public data, no secrets sent
@@ -332,12 +383,41 @@ void geocode() {
   http.end();
 }
 
+// Keeps a new reading for the cards (shared with the drawing code), a copy that
+// survives deep sleep, and the time zone of the weather location.
+void storeWeather(const coco::Weather& w) {
+  time_t now = time(nullptr);
+  portENTER_CRITICAL(&netMux);
+  weather = w;
+  weatherAt = now;
+  portEXIT_CRITICAL(&netMux);
+  rtcSave = {kRtcMagic, w.tempC, w.hiC, w.loC, (int16_t)w.humidity, (uint8_t)w.sky, (uint8_t)w.isDay,
+             (int64_t)now};
+  if (w.hasOffset) applyTz(w.utcOffsetSec);
+}
+
+// Current weather from OpenWeatherMap (metric units). False on any error, so the
+// caller can fall back to open-meteo.
+bool fetchOpenWeatherMap(float lat, float lon) {
+  char q[96];
+  snprintf(q, sizeof(q), "lat=%.4f&lon=%.4f&units=metric&appid=", (double)lat, (double)lon);
+  String body;
+  int code = owmGet(String("https://api.openweathermap.org/data/2.5/weather?") + q + settings.owmKey, body);
+  coco::Weather w;
+  bool ok = code == 200 && coco::parseOpenWeatherMap(body.c_str(), w);
+  if (ok) storeWeather(w);
+  Serial.printf("weather (OpenWeatherMap): HTTP %d %s\n", code,
+                ok ? "ok" : code == 401 ? "bad API key, using open-meteo" : "failed, using open-meteo");
+  return ok;
+}
+
 bool fetchWeather() {
   float lat, lon;
   portENTER_CRITICAL(&settingsMux);
   lat = settings.lat;
   lon = settings.lon;
   portEXIT_CRITICAL(&settingsMux);
+  if (settings.owmKey.length() && fetchOpenWeatherMap(lat, lon)) return true;
   char url[256];
   snprintf(url, sizeof(url),
            "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
@@ -353,18 +433,11 @@ bool fetchWeather() {
     String body = http.getString();
     coco::Weather w;
     if (coco::parseOpenMeteo(body.c_str(), w)) {
-      time_t now = time(nullptr);
-      portENTER_CRITICAL(&netMux);
-      weather = w;
-      weatherAt = now;
-      portEXIT_CRITICAL(&netMux);
-      rtcSave = {kRtcMagic, w.tempC, w.hiC, w.loC, (int16_t)w.humidity, (uint8_t)w.sky, (uint8_t)w.isDay,
-                 (int64_t)now};
-      if (w.hasOffset) applyTz(w.utcOffsetSec);
+      storeWeather(w);
       ok = true;
     }
   }
-  Serial.printf("weather: HTTP %d %s\n", code, ok ? "ok" : "failed");
+  Serial.printf("weather (open-meteo): HTTP %d %s\n", code, ok ? "ok" : "failed");
   http.end();
   return ok;
 }
@@ -426,6 +499,17 @@ void noteInteraction(uint32_t now) {
 
 void onTap(uint32_t now) {
   if (setupMode) return;
+  if (menuOpen) {  // next menu item
+    menuSel = (menuSel + 1) % (int)MenuItem::Count;
+    menuUntil = now + kMenuIdleMs;
+    return;
+  }
+  if (faceShow) {  // next face in the gallery
+    faceShowIdx = (faceShowIdx + 1) % (int)Face::Count;
+    faceShowSince = now;
+    faceShowUntil = now + kCardIdleMs;
+    return;
+  }
   if (showingCards) {
     card = (Card)(((int)card + 1) % (int)Card::Count);
     cardSince = now;
@@ -453,30 +537,69 @@ void startSetupMode() {
   ESP.restart();
 }
 
+void openMenu(uint32_t now) {
+  menuOpen = true;
+  showingCards = false;
+  faceShow = false;
+  menuSel = 0;
+  menuUntil = now + kMenuIdleMs;
+}
+
+// Hold ~1 s in the menu: open the highlighted item.
+void selectMenuItem(uint32_t now) {
+  menuOpen = false;
+  auto showCard = [&](Card c) {
+    showingCards = true;
+    card = c;
+    cardSince = now;
+    cardUntil = now + kCardIdleMs;
+  };
+  switch ((MenuItem)menuSel) {
+    case MenuItem::Clock: showCard(Card::Clock); break;
+    case MenuItem::Weather: showCard(Card::Weather); break;
+    case MenuItem::Battery: showCard(Card::Status); break;
+    case MenuItem::Faces:
+      faceShow = true;
+      faceShowIdx = 0;
+      faceShowSince = now;
+      faceShowUntil = now + kCardIdleMs;
+      break;
+    case MenuItem::WifiSetup: startSetupMode(); break;  // restarts into the QR code + hotspot
+    case MenuItem::Sleep: goToSleep(); break;
+    default: react(Face::Happy, 1500); break;  // Back
+  }
+}
+
 void onDoubleTap(uint32_t now) {
   if (setupMode) {
     if (settings.ssid.length()) ESP.restart();  // leave setup, keep the saved Wi-Fi
     return;
   }
-  if (showingCards) {
-    showingCards = false;
+  if (menuOpen) {  // close the menu
+    menuOpen = false;
     react(Face::Happy, 1500);
-  } else {
-    showingCards = true;
-    card = Card::Clock;
-    cardSince = now;
-    cardUntil = now + kCardIdleMs;
+  } else {  // from the face, a card or the gallery: (back to) the menu
+    openMenu(now);
   }
 }
 
 void onLongPress() {
   if (setupMode) return;
+  if (menuOpen) {
+    menuTookPress = true;
+    selectMenuItem(millis());
+    return;
+  }
   showingCards = false;
   holdingLove = true;
   react(Face::Love, 60000);
 }
 
 void onLongRelease() {
+  if (menuTookPress) {  // that press opened a menu item, it was not petting
+    menuTookPress = false;
+    return;
+  }
   holdingLove = false;
   reactionUntil = millis() + 1500;  // keep smiling a moment
 }
@@ -615,6 +738,39 @@ void render(uint32_t now) {
     snprintf(msg, sizeof(msg), "Can't join %s. Hold my head 10 s to fix it.", settings.ssid.c_str());
     drawNotice(canvas, "Wi-Fi", msg, true);
     return;
+  }
+
+  if (menuOpen) {
+    if (now > menuUntil) {
+      menuOpen = false;
+    } else {
+      char clock[8] = "";
+      if (timeValid()) {
+        time_t tt = time(nullptr);
+        struct tm tm;
+        localtime_r(&tt, &tm);
+        strftime(clock, sizeof(clock), "%H:%M", &tm);
+      }
+      coco::drawMenu(canvas, kMenuItems, (int)MenuItem::Count, menuSel, clock);
+      return;
+    }
+  }
+  if (faceShow) {
+    if (now > faceShowUntil) {
+      faceShow = false;
+    } else {
+      FaceCtx ctx;
+      ctx.t = now - faceShowSince;
+      drawFace(canvas, (Face)faceShowIdx, ctx);
+      // name label on a dark strip at the bottom
+      char label[32];
+      snprintf(label, sizeof(label), "%d/%d %s", faceShowIdx + 1, (int)Face::Count, faceName((Face)faceShowIdx));
+      canvas.setColor(0);
+      canvas.rect(0, 55, kibo::kWidth, 9);
+      canvas.setColor(1);
+      canvas.textCentered(64, 56, label, kibo::kFontSmall);
+      return;
+    }
   }
 
   if (showingCards) {

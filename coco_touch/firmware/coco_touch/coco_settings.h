@@ -13,6 +13,7 @@ struct CocoSettings {
   float lat = WEATHER_LAT, lon = WEATHER_LON;
   bool needGeocode = false;  // `place` was typed but not looked up yet
   String tz;           // POSIX TZ, learned from the weather location
+  String owmKey;       // OpenWeatherMap API key; empty = use open-meteo (no key)
 };
 
 CocoSettings settings;
@@ -28,17 +29,21 @@ void loadSettings() {
   settings.lon = p.getFloat("lon", WEATHER_LON);
   settings.needGeocode = p.getBool("geo", false);
   settings.tz = p.getString("tz", TZ_INFO);
+  settings.owmKey = p.getString("owm", OWM_API_KEY);
   p.end();
 }
 
 // From the setup page. An empty password for the already saved network keeps the old one.
-void saveWifi(const String& ssid, const String& pass, const String& city) {
+// owmKey: empty = keep the saved key, "-" = remove it (back to open-meteo), else the new key.
+void saveWifi(const String& ssid, const String& pass, const String& city, const String& owmKey) {
   Preferences p;
   p.begin("coco", false);
   bool samePlace = city.length() == 0 || city.equalsIgnoreCase(String(settings.place));
   String keepPass = (pass.length() == 0 && ssid == settings.ssid) ? settings.pass : pass;
   p.putString("ssid", ssid);
   p.putString("pass", keepPass);
+  if (owmKey == "-") p.remove("owm");
+  else if (owmKey.length()) p.putString("owm", owmKey);
   if (!samePlace) {
     p.putString("place", city);
     p.putBool("geo", true);  // look the city up once Wi-Fi works

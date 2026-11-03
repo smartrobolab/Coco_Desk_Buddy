@@ -32,6 +32,18 @@ const char* skyName(Sky s);
 // daily=temperature_2m_max,temperature_2m_min. Returns false if fields are missing.
 bool parseOpenMeteo(const char* json, Weather& out);
 
+// OpenWeatherMap condition id ("weather":[{"id":...}]) -> Sky.
+Sky skyFromOwm(int id);
+
+// Parses an OpenWeatherMap /data/2.5/weather response requested with units=metric:
+// temperature, today's range (main.temp_min/max), humidity, condition, day/night
+// (icon ends in 'd'/'n') and the place's UTC offset ("timezone"). False if fields are missing.
+bool parseOpenWeatherMap(const char* json, Weather& out);
+
+// Parses an OpenWeatherMap geocoding response (/geo/1.0/direct?q=...&limit=1):
+// first result's lat, lon and name. Returns false if there is no result.
+bool parseOwmGeocode(const char* json, float& lat, float& lon, char* name, int nameLen);
+
 // Parses an Open-Meteo geocoding response (/v1/search?name=...&count=1):
 // first result's latitude, longitude and name. Returns false if there is no result.
 bool parseGeocode(const char* json, float& lat, float& lon, char* name, int nameLen);
@@ -50,6 +62,10 @@ void drawWeather(Canvas& c, const Weather& w, const char* place, uint32_t t);
 //   wifi: "ok 10:32", "off", "not set"...   weatherAgeMin < 0: never fetched
 void drawStatus(Canvas& c, int batteryPct, int batteryMv, const char* wifi, int weatherAgeMin,
                 const char* version);
+
+// Menu: a title bar with `clock` ("14:05", or empty) on the right and a list of
+// `count` items that scrolls so the `selected` one (drawn inverted) stays visible.
+void drawMenu(Canvas& c, const char* const* items, int count, int selected, const char* clock);
 
 // Long-press overlay at the bottom: 2-5 s "keep holding: sleep", 5-10 s "let go = sleep,
 // hold = Wi-Fi", 10 s+ "let go = Wi-Fi setup".

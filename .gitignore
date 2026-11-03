@@ -1,3 +1,7 @@
 sim/build/
 */firmware/xiaozhi-esp32/
 __pycache__/
+
+# Coco Touch: your own API keys and the binaries built with them (PRIVATE=1 build.sh)
+coco_touch/firmware/coco_touch/coco_secrets.h
+coco_touch/firmware/private/
