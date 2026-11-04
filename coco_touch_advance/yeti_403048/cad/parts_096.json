@@ -1,0 +1,182 @@
+{
+ "parts": [
+  {
+   "name": "oled_glass",
+   "label": "0.96\" OLED SSD1306 glass",
+   "c": [
+    0.022,
+    -4.446,
+    35.09
+   ],
+   "s": [
+    26.7,
+    19.3,
+    1.5
+   ],
+   "color": "#1c2230",
+   "contact": [
+    "+z"
+   ],
+   "holder": "bezel"
+  },
+  {
+   "name": "oled",
+   "label": "0.96\" OLED SSD1306",
+   "c": [
+    0.022,
+    -5.646,
+    32.89
+   ],
+   "s": [
+    27.3,
+    27.8,
+    2.9
+   ],
+   "color": "#3a6fd8",
+   "contact": [
+    "-z",
+    "+z"
+   ],
+   "holder": "chassis"
+  },
+  {
+   "name": "esp32",
+   "label": "ESP32-C3 Super Mini (on edge, USB-C in the back cover slot)",
+   "c": [
+    -18.971,
+    -6.72,
+    11.25
+   ],
+   "s": [
+    4.5,
+    18.0,
+    22.5
+   ],
+   "color": "#2a2a30",
+   "contact": [
+    "-z"
+   ],
+   "holder": "cover"
+  },
+  {
+   "name": "battery",
+   "label": "LiPo 403048 (4.0 x 30 x 48 mm)",
+   "c": [
+    0.279,
+    0.515,
+    2.0
+   ],
+   "s": [
+    30.0,
+    48.0,
+    4.0
+   ],
+   "color": "#e0b030",
+   "contact": [
+    "-z",
+    "+z"
+   ],
+   "holder": "cover"
+  },
+  {
+   "name": "switch",
+   "label": "slide switch (knob through the back cover)",
+   "c": [
+    19.079,
+    -1.12,
+    1.75
+   ],
+   "s": [
+    3.6,
+    8.6,
+    3.5
+   ],
+   "color": "#b0b0b0",
+   "contact": [
+    "-z"
+   ],
+   "holder": "cover"
+  },
+  {
+   "name": "charger",
+   "label": "TP4056 USB-C charger (standing, its USB-C through the back cover)",
+   "c": [
+    19.359,
+    -14.0,
+    8.5
+   ],
+   "s": [
+    4.0,
+    12.0,
+    17.0
+   ],
+   "color": "#2f6fb0",
+   "contact": [
+    "-z"
+   ],
+   "holder": "cover"
+  },
+  {
+   "name": "vibe",
+   "label": "vibration motor module 21 x 23 mm",
+   "c": [
+    0.0,
+    3.36,
+    26.44
+   ],
+   "s": [
+    23.0,
+    21.0,
+    6.0
+   ],
+   "color": "#30a060",
+   "contact": [
+    "+z"
+   ],
+   "holder": "chassis"
+  },
+  {
+   "name": "imu",
+   "label": "MPU6050 GY-521 (chip towards the feet)",
+   "c": [
+    0.0,
+    -11.64,
+    15.7
+   ],
+   "s": [
+    21.2,
+    3.4,
+    16.4
+   ],
+   "color": "#7040b0",
+   "contact": [
+    "-y"
+   ],
+   "holder": "chassis"
+  },
+  {
+   "name": "touch",
+   "label": "TTP223 touch sensor (pad to the head)",
+   "c": [
+    0.0,
+    -33.04,
+    17.36
+   ],
+   "s": [
+    15.0,
+    2.6,
+    11.0
+   ],
+   "color": "#d03030",
+   "contact": [
+    "-y"
+   ],
+   "holder": "body"
+  }
+ ],
+ "gap": 1.0,
+ "plate": [
+  29.440000000000005,
+  31.440000000000005
+ ]
+}
