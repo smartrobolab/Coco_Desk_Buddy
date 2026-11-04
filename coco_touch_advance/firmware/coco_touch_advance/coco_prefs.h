@@ -22,6 +22,11 @@ const uint32_t kShuffleMinMs[] = {0, 60000, 20000, 6000};
 const uint32_t kShuffleSpanMs[] = {0, 60000, 25000, 9000};
 constexpr int kShuffleCount = 4;
 
+// which jokes Coco tells by itself (Menu > Tell a joke always tells one)
+const char* const kJokeNames[] = {"All", "Coding", "Hindi", "Marathi", "Off"};
+constexpr int kJokeSettingCount = 5;
+constexpr int kJokesOff = 4;
+
 const char* const kNapNames[] = {"1 min", "2 min", "5 min", "10 min", "30 min", "Never"};
 const uint16_t kNapMinutes[] = {1, 2, 5, 10, 30, 0};
 constexpr int kNapCount = 6;
@@ -31,6 +36,7 @@ struct AdvPrefs {
   uint8_t mood = DEFAULT_MOOD;
   uint8_t shuffle = DEFAULT_SHUFFLE;
   uint8_t nap = DEFAULT_NAP;
+  uint8_t jokes = DEFAULT_JOKES;
   bool clock24 = DEFAULT_CLOCK_24H;
   bool flip = OLED_ROTATE_180;
   bool wifiOn = true;
@@ -46,6 +52,7 @@ void loadPrefs() {
   prefs.mood = min<uint8_t>(p.getUChar("mood", DEFAULT_MOOD), (uint8_t)Mood::Count - 1);
   prefs.shuffle = min<uint8_t>(p.getUChar("shuffle", DEFAULT_SHUFFLE), kShuffleCount - 1);
   prefs.nap = min<uint8_t>(p.getUChar("nap", DEFAULT_NAP), kNapCount - 1);
+  prefs.jokes = min<uint8_t>(p.getUChar("jokes", DEFAULT_JOKES), kJokeSettingCount - 1);
   prefs.clock24 = p.getBool("c24", DEFAULT_CLOCK_24H);
   prefs.flip = p.getBool("flip", OLED_ROTATE_180);
   prefs.wifiOn = p.getBool("wifi", true);
@@ -63,6 +70,7 @@ void savePrefs() {
   p.putUChar("mood", prefs.mood);
   p.putUChar("shuffle", prefs.shuffle);
   p.putUChar("nap", prefs.nap);
+  p.putUChar("jokes", prefs.jokes);
   p.putBool("c24", prefs.clock24);
   p.putBool("flip", prefs.flip);
   p.putBool("wifi", prefs.wifiOn);

@@ -16,15 +16,16 @@
     Faces        every face; tap = next, hold = show this one (tap Coco to let it roam again)
     Games        Dino Run, Sky Hop, Stacker, Reflex, Watch Coco play (high scores are saved)
     Feed me      cookie, pizza, noodles, burger, ice cream, apple, juice
+    Tell a joke  a coding, Hindi or Marathi joke (Settings > Jokes picks which)
     My Coco      food, fun and energy bars, how Coco feels
     Clock & date, Weather, Battery & Wi-Fi
-    Settings     brightness, mood, random faces, nap timer, 12/24 h clock, flip screen,
+    Settings     brightness, mood, random faces, jokes, nap timer, 12/24 h clock, flip screen,
                  Wi-Fi on/off, Wi-Fi setup (QR), update weather, reset scores,
                  factory reset, about
   In a game: tap = jump / flap / drop, hold 1.5 s = quit. Game over: tap = again, hold = exit.
 
   Left alone, Coco lives its own life: eats, plays ball, dances, sings songs, reads,
-  works out, plays games by itself, sneezes, gets bored, hungry or sleepy, shows the
+  works out, plays games by itself, tells jokes, sneezes, gets bored, hungry or sleepy, shows the
   clock and weather. How often, and which kind, follows Settings > Mood and
   Settings > Random faces.
 
@@ -45,6 +46,7 @@
 #include "coco_config.h"
 #include "coco_faces_x.h"
 #include "coco_games.h"
+#include "coco_jokes.h"
 #include "coco_oled.h"
 #include "coco_portal.h"
 #include "coco_prefs.h"
@@ -156,7 +158,7 @@ int pokes = 0;
 uint32_t lastPokeDecay = 0;
 
 // Idle activities. kind: what is shown; cat: which mood likes it.
-enum class Kind : uint8_t { Face, Clock, Weather, Game, Song };
+enum class Kind : uint8_t { Face, Clock, Weather, Game, Song, Joke };
 enum Cat : uint8_t { kFood, kPlay, kFun, kCalm, kSleepy, kGrumpy, kInfo, kCatCount };
 struct Activity {
   Kind kind;
@@ -183,6 +185,7 @@ const Activity kActivities[] = {
     {Kind::Face, Ex::Sleepy, kSleepy, 2, 4000},    {Kind::Face, Ex::Pouting, kGrumpy, 2, 4000},
     {Kind::Face, Ex::Serious, kGrumpy, 2, 4000},   {Kind::Face, Ex::Angry, kGrumpy, 1, 2500},
     {Kind::Face, Ex::Fire, kGrumpy, 1, 2500},      {Kind::Face, Ex::Sad, kGrumpy, 1, 3000},
+    {Kind::Joke, Ex::Laughing, kFun, 2, 0},        {Kind::Joke, Ex::Laughing, kCalm, 1, 0},
     {Kind::Clock, Ex::Neutral, kInfo, 3, 6000},    {Kind::Weather, Ex::Neutral, kInfo, 3, 6000},
 };
 constexpr int kActivityCount = sizeof(kActivities) / sizeof(kActivities[0]);
@@ -208,6 +211,9 @@ constexpr int kSongCount = sizeof(kSongs) / sizeof(kSongs[0]);
 int activityIdx = -1;
 uint32_t activitySince = 0, activityUntil = 0, nextActivityAt = 0;
 int songIdx = 0;
+int jokeIdx = -1;                 // the joke being told (also: don't tell it twice in a row)
+uint32_t jokeSetupMs = 0, jokePunchMs = 0;
+constexpr uint32_t kJokeLaughMs = 2500;
 
 uint32_t lastInteraction = 0;
 int lastClockHour = -1;
@@ -639,16 +645,18 @@ void startSetupMode() {
 
 // ---------------------------------------------------------------- menus
 
-const char* const kMainItems[] = {"Faces", "Games", "Feed me", "My Coco", "Clock & date",
-                                  "Weather", "Battery & Wi-Fi", "Settings", "Sleep", "Back"};
-constexpr int kMainCount = sizeof(kMainItems) / sizeof(kMainItems[0]);
+enum MainItem { mFaces, mGames, mFeed, mJoke, mStats, mClock, mWeather, mStatus, mSettings, mSleep, mBack, mCount };
+const char* const kMainItems[] = {"Faces",   "Games",           "Feed me",  "Tell a joke", "My Coco", "Clock & date",
+                                  "Weather", "Battery & Wi-Fi", "Settings", "Sleep",       "Back"};
+constexpr int kMainCount = mCount;
+static_assert(sizeof(kMainItems) / sizeof(kMainItems[0]) == mCount, "one label per main menu item");
 const Ex kFoods[] = {Ex::EatCookie, Ex::EatPizza, Ex::EatNoodles, Ex::EatBurger,
                      Ex::EatIceCream, Ex::EatApple, Ex::DrinkJuice};
 const char* const kFoodNames[] = {"Cookie", "Pizza", "Noodles", "Burger", "Ice cream", "Apple", "Juice"};
 constexpr int kFoodCount = sizeof(kFoods) / sizeof(kFoods[0]);
-enum SettingsItem { sBright, sMood, sShuffle, sNap, sClock, sFlip, sWifi, sSetup, sUpdate, sScores, sReset, sAbout,
+enum SettingsItem { sBright, sMood, sShuffle, sJokes, sNap, sClock, sFlip, sWifi, sSetup, sUpdate, sScores, sReset, sAbout,
                     sBack, sCount };
-const char* const kSettingsItems[] = {"Brightness", "Mood", "Random faces", "Nap after", "Clock", "Flip screen",
+const char* const kSettingsItems[] = {"Brightness", "Mood", "Random faces", "Jokes", "Nap after", "Clock", "Flip screen",
                                       "Wi-Fi", "Wi-Fi setup (QR)", "Update weather", "Reset scores",
                                       "Factory reset", "About", "Back"};
 
@@ -696,6 +704,7 @@ int buildMenu(coco::MenuRow* rows, const char** title) {
       rows[sBright].value = kBrightNames[prefs.brightness];
       rows[sMood].value = kMoodNames[prefs.mood];
       rows[sShuffle].value = kShuffleNames[prefs.shuffle];
+      rows[sJokes].value = kJokeNames[prefs.jokes];
       rows[sNap].value = kNapNames[prefs.nap];
       rows[sClock].value = prefs.clock24 ? "24 h" : "12 h";
       rows[sFlip].value = prefs.flip ? "On" : "Off";
@@ -725,6 +734,22 @@ void feed(int food, uint32_t now) {
   nextActivityAt = now + ms + 20000;
 }
 
+void startActivity(int i, uint32_t now);
+
+// Menu > Tell a joke: one joke right now (in the chosen language; "Off" only stops
+// the jokes Coco tells by itself).
+void tellJoke(uint32_t now) {
+  toFace();
+  pinned = false;
+  reactionUntil = 0;
+  sulkUntil = 0;
+  for (int i = 0; i < kActivityCount; i++)
+    if (kActivities[i].kind == Kind::Joke) {
+      startActivity(i, now);
+      break;
+    }
+}
+
 // Hold in a menu: open the item, or change the setting (the menu stays open).
 void selectMenuItem(uint32_t now) {
   modeUntil = now + kMenuIdleMs;
@@ -732,19 +757,20 @@ void selectMenuItem(uint32_t now) {
   switch (menuId) {
     case MenuId::Main:
       switch (sel) {
-        case 0:  // Faces
+        case mFaces:
           mode = Mode::Gallery;
           gallerySince = now;
           modeUntil = now + kMenuIdleMs;
           break;
-        case 1: openMenu(MenuId::Games, 0, now); break;
-        case 2: openMenu(MenuId::Feed, 0, now); break;
-        case 3: showCard(Card::Stats, now); break;
-        case 4: showCard(Card::Clock, now); break;
-        case 5: showCard(Card::Weather, now); break;
-        case 6: showCard(Card::Status, now); break;
-        case 7: openMenu(MenuId::Settings, 0, now); break;
-        case 8: goToSleep(); break;
+        case mGames: openMenu(MenuId::Games, 0, now); break;
+        case mFeed: openMenu(MenuId::Feed, 0, now); break;
+        case mJoke: tellJoke(now); break;
+        case mStats: showCard(Card::Stats, now); break;
+        case mClock: showCard(Card::Clock, now); break;
+        case mWeather: showCard(Card::Weather, now); break;
+        case mStatus: showCard(Card::Status, now); break;
+        case mSettings: openMenu(MenuId::Settings, 0, now); break;
+        case mSleep: goToSleep(); break;
         default:
           toFace();
           react(Ex::Happy, 1500);
@@ -754,11 +780,11 @@ void selectMenuItem(uint32_t now) {
     case MenuId::Games:
       if (sel < (int)Game::Count) startGame((Game)sel, false, true, now);
       else if (sel == (int)Game::Count) startGame((Game)(random32() % 3), true, true, now);
-      else openMenu(MenuId::Main, 1, now);
+      else openMenu(MenuId::Main, mGames, now);
       break;
     case MenuId::Feed:
       if (sel < kFoodCount) feed(sel, now);
-      else openMenu(MenuId::Main, 2, now);
+      else openMenu(MenuId::Main, mFeed, now);
       break;
     case MenuId::Settings:
       switch (sel) {
@@ -771,6 +797,7 @@ void selectMenuItem(uint32_t now) {
           prefs.shuffle = (prefs.shuffle + 1) % kShuffleCount;
           nextActivityAt = now + 5000;
           break;
+        case sJokes: prefs.jokes = (prefs.jokes + 1) % kJokeSettingCount; break;
         case sNap: prefs.nap = (prefs.nap + 1) % kNapCount; break;
         case sClock: prefs.clock24 = !prefs.clock24; break;
         case sFlip:
@@ -797,7 +824,7 @@ void selectMenuItem(uint32_t now) {
           return;
         case sReset: openMenu(MenuId::Reset, 0, now); return;
         case sAbout: showCard(Card::About, now); return;
-        default: openMenu(MenuId::Main, 7, now); return;
+        default: openMenu(MenuId::Main, mSettings, now); return;
       }
       savePrefs();
       showToast("saved", 800);
@@ -822,9 +849,9 @@ void menuBack(uint32_t now) {
       toFace();
       react(Ex::Happy, 1500);
       break;
-    case MenuId::Games: openMenu(MenuId::Main, 1, now); break;
-    case MenuId::Feed: openMenu(MenuId::Main, 2, now); break;
-    case MenuId::Settings: openMenu(MenuId::Main, 7, now); break;
+    case MenuId::Games: openMenu(MenuId::Main, mGames, now); break;
+    case MenuId::Feed: openMenu(MenuId::Main, mFeed, now); break;
+    case MenuId::Settings: openMenu(MenuId::Main, mSettings, now); break;
     case MenuId::Reset: openMenu(MenuId::Settings, sReset, now); break;
   }
 }
@@ -885,7 +912,7 @@ void onDoubleTap(uint32_t now) {
   switch (mode) {
     case Mode::Menu: menuBack(now); break;
     case Mode::Gallery: openMenu(MenuId::Main, 0, now); break;
-    case Mode::Card: openMenu(MenuId::Main, card == Card::About ? 7 : 0, now); break;
+    case Mode::Card: openMenu(MenuId::Main, card == Card::About ? mSettings : 0, now); break;
     default:
       openMenu(MenuId::Main, 0, now);
       break;
@@ -1101,8 +1128,16 @@ void startActivity(int i, uint32_t now) {
   activityIdx = i;
   activitySince = now;
   activityUntil = now + a.ms;
-  nextActivityAt = activityUntil + gap;
   if (a.kind == Kind::Song) songIdx = (int)(random32() % kSongCount);
+  if (a.kind == Kind::Joke) {  // setup, punchline, then a laugh
+    coco::JokeLang lang = prefs.jokes >= 1 && prefs.jokes <= 3 ? (coco::JokeLang)(prefs.jokes - 1) : coco::JokeLang::Count;
+    jokeIdx = coco::pickJoke(lang, random32(), jokeIdx);
+    jokeSetupMs = coco::jokeReadMs(coco::kJokes[jokeIdx].setup);
+    jokePunchMs = coco::jokeReadMs(coco::kJokes[jokeIdx].punch);
+    activityUntil = now + jokeSetupMs + jokePunchMs + kJokeLaughMs;
+    pet.fun = clamp100(pet.fun + 2);
+  }
+  nextActivityAt = activityUntil + gap;
   if (a.cat == kFood) pet.hunger = clamp100(pet.hunger - 10);  // a snack
   if (a.cat == kPlay) pet.energy = clamp100(pet.energy - 2);
 }
@@ -1122,6 +1157,7 @@ void pickNextActivity(uint32_t now) {
     if (a.cat == kFood && pet.hunger > 60) wt *= 2;
     if (a.kind == Kind::Clock && !timeValid()) wt = 0;
     if (a.kind == Kind::Weather && !w.valid) wt = 0;
+    if (a.kind == Kind::Joke && prefs.jokes == kJokesOff) wt = 0;
     weights[i] = wt;
     total += wt;
   }
@@ -1188,6 +1224,16 @@ void renderFace(uint32_t now) {
     switch (a.kind) {
       case Kind::Clock: drawClockCard(t); return;
       case Kind::Weather: drawWeatherCard(t); return;
+      case Kind::Joke:
+        if (t < jokeSetupMs + jokePunchMs) {
+          const coco::Joke& j = coco::kJokes[jokeIdx];
+          bool punch = t >= jokeSetupMs;
+          coco::drawJoke(canvas, coco::jokeLangName(j.lang), punch ? j.punch : j.setup, punch,
+                         punch ? t - jokeSetupMs : t);
+          return;
+        }
+        face = Ex::Laughing;  // ha ha!
+        break;
       case Kind::Song:
         face = Ex::Singing;
         lyric = kSongs[songIdx];

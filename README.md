@@ -32,7 +32,7 @@ Flash the file at **0x0** (esptool-js in Chrome, or `python3 -m esptool --chip e
 | **Coco Touch Advance** | [coco_touch_advance_c3_096](coco_touch_advance/firmware/release/coco_touch_advance_c3_096-merged.bin) | [coco_touch_advance_c3_13](coco_touch_advance/firmware/release/coco_touch_advance_c3_13-merged.bin) | [coco_touch_advance_hw747_096](coco_touch_advance/firmware/release/coco_touch_advance_hw747_096-merged.bin) | [coco_touch_advance_hw747_13](coco_touch_advance/firmware/release/coco_touch_advance_hw747_13-merged.bin) |
 | **Coco Voice** | [coco_voice_c3_096](coco_voice_c3/firmware/release/coco_voice_c3_096-merged.bin) | [coco_voice_c3_13](coco_voice_c3/firmware/release/coco_voice_c3_13-merged.bin) | [coco_voice_s3_hw747_096](coco_voice_s3/firmware/release/coco_voice_s3_hw747_096-merged.bin) | [coco_voice_s3_hw747_13](coco_voice_s3/firmware/release/coco_voice_s3_hw747_13-merged.bin) |
 
-**Coco Touch Advance** runs on the Coco Touch hardware and adds 50 faces, slap reactions, feeding, a pet with food / fun / energy, 4 mini games (Dino Run, Sky Hop, Stacker, Reflex) and a settings menu (brightness, mood, nap timer, Wi-Fi on/off, ...): see [coco_touch_advance/](coco_touch_advance/README.md).
+**Coco Touch Advance** runs on the Coco Touch hardware and adds 50 faces, coding / Hindi / Marathi jokes, slap reactions, feeding, a pet with food / fun / energy, 4 mini games (Dino Run, Sky Hop, Stacker, Reflex) and a settings menu (brightness, mood, nap timer, Wi-Fi on/off, ...): see [coco_touch_advance/](coco_touch_advance/README.md).
 
 Coco Voice on the 8 MB XIAO ESP32S3 ("Hey Coco"): [coco_voice_s3-merged.bin](coco_voice_s3/firmware/release/coco_voice_s3-merged.bin). Battery sense: 1 MΩ + 330 kΩ on the C3 boards, 330 kΩ + 330 kΩ on the S3 boards.
 

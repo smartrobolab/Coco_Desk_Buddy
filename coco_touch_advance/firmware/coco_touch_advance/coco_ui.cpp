@@ -71,6 +71,22 @@ void drawAbout(Canvas& c, const char* version, const char* board, const char* sc
   c.text(2, 55, line, kFontSmall);
 }
 
+void drawJoke(Canvas& c, const char* title, const char* text, bool punch, uint32_t t) {
+  if (punch) {  // ^ ^ laughing eyes, bouncing
+    int hop = (t / 200) % 2;
+    c.arcUp(6, 7 - hop, 4, 4, 2);
+    c.arcUp(17, 7 - hop, 4, 4, 2);
+  } else {  // eyes that blink and glance at the text
+    bool blink = (t % 3000) > 2850;
+    int look = (t / 1500) % 2;
+    c.roundRect(2 + look, blink ? 5 : 1, 7, blink ? 2 : 9, 2);
+    c.roundRect(13 + look, blink ? 5 : 1, 7, blink ? 2 : 9, 2);
+  }
+  c.text(25, 1, title, kFontMedium);
+  c.hline(0, 127, 12);
+  c.textWrapped(1, 15, 126, 6, text, kFontSmall, 1);
+}
+
 void drawFooter(Canvas& c, const char* text) {
   c.setColor(0);
   c.rect(0, 55, kWidth, 9);

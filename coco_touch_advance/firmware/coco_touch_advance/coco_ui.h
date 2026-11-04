@@ -23,6 +23,10 @@ void drawStats(Canvas& c, int food, int fun, int energy, const char* feeling, in
 // About: version, board, screen, number of faces, free memory.
 void drawAbout(Canvas& c, const char* version, const char* board, const char* screen, int faces, int freeKb);
 
+// Joke: Coco's little eyes and `title` ("Coding joke") on top, the text word-wrapped
+// below (up to 6 lines). punch = the punchline: happy eyes.
+void drawJoke(Canvas& c, const char* title, const char* text, bool punch, uint32_t t);
+
 // A dark strip at the bottom of the face with a centred label.
 void drawFooter(Canvas& c, const char* text);
 

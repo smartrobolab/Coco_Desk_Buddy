@@ -1,6 +1,6 @@
 # Coco Touch Advance
 
-Coco Touch with a lot more personality: **50 animated faces**, a little pet that gets hungry, sleepy and **angry when you slap it**, **4 mini games** (plus Coco playing them by itself), and an **on-screen menu** for settings, Wi-Fi, brightness and mood.
+Coco Touch with a lot more personality: **50 animated faces**, **jokes** (coding, Hindi, Marathi), a little pet that gets hungry, sleepy and **angry when you slap it**, **4 mini games** (plus Coco playing them by itself), and an **on-screen menu** for settings, Wi-Fi, brightness and mood.
 
 **Hardware:** exactly the same as [Coco Touch](../coco_touch/README.md): ESP32-C3 Super Mini (or HW-747 ESP32-S3 Super Mini), 0.96" SSD1306 (or 1.3" SH1106) OLED, TTP223 touch pad. Wiring, case, bending template and 3D models are in [coco_touch/](../coco_touch/README.md); nothing changes, only the firmware.
 
@@ -50,6 +50,7 @@ Menus, cards and the gallery go back to the face after 15 s untouched.
 | **Faces** | gallery of all 50 faces with their names. Tap = next, **hold = show this one**: Coco keeps that face until you tap it |
 | **Games** | Dino Run, Sky Hop, Stacker, Reflex, **Watch Coco play**. Best scores are shown and saved |
 | **Feed me** | cookie, pizza, noodles, burger, ice cream, apple, juice. Each has its own eating animation. Feed it when it is full and it burps |
+| **Tell a joke** | Coco tells a joke right now: setup, punchline, then it laughs |
 | **My Coco** | food, fun and energy bars, how Coco feels, how often it was petted and slapped |
 | Clock & date, Weather, Battery & Wi-Fi | the info cards from Coco Touch (tap = next card) |
 | **Settings** | see below |
@@ -62,6 +63,7 @@ Menus, cards and the gallery go back to the face after 15 s untouched.
 | Brightness | Low, Medium, High, Max |
 | Mood | Happy, Calm, Playful, Sleepy, Grumpy, Random (changes every 10 min). Sets its resting face, how it reacts to taps and what it likes to do |
 | Random faces | how often Coco does something by itself: Off, Rare (1-2 min), Normal (20-45 s), Often (6-15 s) |
+| Jokes | which jokes Coco tells by itself: All, Coding, Hindi, Marathi, or Off |
 | Nap after | 1, 2, 5, 10, 30 min or Never |
 | Clock | 24 h or 12 h |
 | Flip screen | turns the picture upside down (OLED mounted header-down) |
@@ -85,9 +87,17 @@ Menus, cards and the gallery go back to the face after 15 s untouched.
 
 Hold 1.5 s to quit a game. On the game-over screen: tap = play again, hold = back to the games list. **Watch Coco play** lets Coco play Dino Run, Sky Hop or Stacker by itself (touch to stop). It sometimes loses too.
 
+## Jokes
+
+![Coco Touch Advance jokes](images/coco_touch_advance_jokes.png)
+
+Every now and then Coco tells a joke by itself: it shows the setup, waits so you can read it, shows the punchline with happy eyes, then laughs. **Menu > Tell a joke** asks for one at any time. There are 37 jokes: 16 coding jokes (in English), 11 Hindi and 10 Marathi jokes (including Puneri patya). Settings > Jokes picks the language, or turns off the jokes Coco tells by itself.
+
+Hindi and Marathi are written in Roman letters ("Pani ka formula batao"), because the OLED font has only Latin characters. To add your own, add a line to [coco_jokes.h](firmware/coco_touch_advance/coco_jokes.h): a language, a setup and a punchline, each under ~140 characters so it fits on 6 lines.
+
 ## Coco's own life
 
-Left alone, Coco picks something to do every so often (Settings > Random faces): it eats one of 7 snacks, plays ball, dances, **sings songs with scrolling lyrics**, plays a handheld console, **plays a real game by itself** for 20 s, reads a book, works out, sneezes, throws a party, gets bored, confused or sleepy, and shows the clock and weather. Its **mood** decides what it likes: Playful plays more, Sleepy yawns more, Grumpy pouts.
+Left alone, Coco picks something to do every so often (Settings > Random faces): it eats one of 7 snacks, plays ball, dances, **sings songs with scrolling lyrics**, **tells jokes**, plays a handheld console, **plays a real game by itself** for 20 s, reads a book, works out, sneezes, throws a party, gets bored, confused or sleepy, and shows the clock and weather. Its **mood** decides what it likes: Playful plays more, Sleepy yawns more, Grumpy pouts.
 
 It also has needs (shown under My Coco):
 
@@ -116,7 +126,8 @@ Every face is drawn from shapes on every frame (no bitmaps), so they all animate
 | [coco_touch_advance.ino](firmware/coco_touch_advance/coco_touch_advance.ino) | main sketch: touch gestures, menus, pet, activities, Wi-Fi, sleep |
 | [coco_faces_x.cpp](firmware/coco_touch_advance/coco_faces_x.cpp) | the 25 new faces and the list of all 50 |
 | [coco_games.cpp](firmware/coco_touch_advance/coco_games.cpp) | the four games and their autopilot |
-| [coco_ui.cpp](firmware/coco_touch_advance/coco_ui.cpp) | menu list, My Coco and About screens |
+| [coco_jokes.h](firmware/coco_touch_advance/coco_jokes.h) | the jokes (coding, Hindi, Marathi) |
+| [coco_ui.cpp](firmware/coco_touch_advance/coco_ui.cpp) | menu list, joke, My Coco and About screens |
 | [coco_prefs.h](firmware/coco_touch_advance/coco_prefs.h) | settings and high scores saved in flash |
 | `kibo_*`, `coco_cards.*`, `coco_portal.h`, `coco_settings.h` | Coco Touch's face engine, cards and phone setup (same as [coco_touch](../coco_touch/firmware/coco_touch)) |
 | [coco_config.h](firmware/coco_touch_advance/coco_config.h) | pins, screen and the default settings |

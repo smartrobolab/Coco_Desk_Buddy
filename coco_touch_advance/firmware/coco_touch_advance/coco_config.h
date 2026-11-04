@@ -51,6 +51,7 @@
 #define DEFAULT_SHUFFLE      2    // random faces: 0 Off, 1 Rare, 2 Normal, 3 Often
 #define DEFAULT_NAP          2    // nap after: 0 1 min, 1 2 min, 2 5 min, 3 10 min, 4 30 min, 5 never
 #define DEFAULT_CLOCK_24H    1    // 0 = 12-hour clock
+#define DEFAULT_JOKES        0    // jokes Coco tells: 0 All, 1 Coding, 2 Hindi, 3 Marathi, 4 Off
 
 // ----------------------------------------------------------------- board
 // The board is picked automatically from the chip you compile for:
