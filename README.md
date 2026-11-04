@@ -29,7 +29,10 @@ Flash the file at **0x0** (esptool-js in Chrome, or `python3 -m esptool --chip e
 | | ESP32-C3 Super Mini, 0.96" | ESP32-C3 Super Mini, 1.3" | ESP32-S3 HW-747, 0.96" | ESP32-S3 HW-747, 1.3" |
 |---|---|---|---|---|
 | **Coco Touch** | [coco_touch_c3_096](coco_touch/firmware/release/coco_touch_c3_096-merged.bin) | [coco_touch_c3_13](coco_touch/firmware/release/coco_touch_c3_13-merged.bin) | [coco_touch_hw747_096](coco_touch/firmware/release/coco_touch_hw747_096-merged.bin) | [coco_touch_hw747_13](coco_touch/firmware/release/coco_touch_hw747_13-merged.bin) |
+| **Coco Touch Advance** | [coco_touch_advance_c3_096](coco_touch_advance/firmware/release/coco_touch_advance_c3_096-merged.bin) | [coco_touch_advance_c3_13](coco_touch_advance/firmware/release/coco_touch_advance_c3_13-merged.bin) | [coco_touch_advance_hw747_096](coco_touch_advance/firmware/release/coco_touch_advance_hw747_096-merged.bin) | [coco_touch_advance_hw747_13](coco_touch_advance/firmware/release/coco_touch_advance_hw747_13-merged.bin) |
 | **Coco Voice** | [coco_voice_c3_096](coco_voice_c3/firmware/release/coco_voice_c3_096-merged.bin) | [coco_voice_c3_13](coco_voice_c3/firmware/release/coco_voice_c3_13-merged.bin) | [coco_voice_s3_hw747_096](coco_voice_s3/firmware/release/coco_voice_s3_hw747_096-merged.bin) | [coco_voice_s3_hw747_13](coco_voice_s3/firmware/release/coco_voice_s3_hw747_13-merged.bin) |
+
+**Coco Touch Advance** runs on the Coco Touch hardware and adds 50 faces, slap reactions, feeding, a pet with food / fun / energy, 4 mini games (Dino Run, Sky Hop, Stacker, Reflex) and a settings menu (brightness, mood, nap timer, Wi-Fi on/off, ...): see [coco_touch_advance/](coco_touch_advance/README.md).
 
 Coco Voice on the 8 MB XIAO ESP32S3 ("Hey Coco"): [coco_voice_s3-merged.bin](coco_voice_s3/firmware/release/coco_voice_s3-merged.bin). Battery sense: 1 MΩ + 330 kΩ on the C3 boards, 330 kΩ + 330 kΩ on the S3 boards.
 
@@ -49,6 +52,10 @@ Coco_Desk_Buddy/
 │   ├── firmware/coco_touch/   Arduino sketch
 │   ├── images/                wiring, case, assembly, screens, bending template
 │   ├── cad/                   STL models
+│   └── README.md
+├── coco_touch_advance/       same hardware as Coco Touch: 50 faces, games, settings menu
+│   ├── firmware/coco_touch_advance/   Arduino sketch, build.sh, release/
+│   ├── images/                face and screen sheets
 │   └── README.md
 ├── coco_voice_c3/
 │   ├── firmware/              XiaoZhi board coco/c3, shared/, build.sh, flash.sh
