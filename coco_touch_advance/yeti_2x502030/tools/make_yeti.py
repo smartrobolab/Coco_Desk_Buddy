@@ -69,7 +69,9 @@ ESP32 = (18.0, 4.5, 22.5)        # ESP32-C3 Super Mini standing: w, thickness, l
 FEET = [(-15.0, 16.0), (15.0, 16.0)]   # leg holes (x, z) in the zip's body; soles at y = 37.36
 SOLE_Y = 37.36
 BASE_T = 3.5                     # the zip's base plate thickness
-CHARGER = (17.0, 12.0, 4.0)      # small TP4056 USB-C module with protection (as in Coco Touch)
+CHARGER = (17.0, 12.0, 4.0)      # TP4056 USB-C module with protection: length (USB end to back), width, thickness
+PLUG_HEAD = (15.0, 9.0)          # recess round each USB-C port, for big / coated plug heads (standard max 12.35 x 6.5)
+PORT_WALL = 0.6                  # wall left between the plug head and the socket (the plug's metal is only 6.6 mm long)
 TOUCH = (15.0, 2.6, 11.0)        # TTP223 small: w, thickness (pad up), length
 IMU = (21.2, 3.4, 16.4)          # GY-521 MPU6050 standing: w, thickness, height
 VIBE = (23.0, 21.0, 6.0)         # black DC vibration motor module 21 x 23 mm (flat motor), lying flat
@@ -273,9 +275,13 @@ def build(src, size, battery=BATTERY, switch=True):
     bw, bh, bt = battery
     part("battery", "2 x LiPo 502030 stacked (5 x 20 x 30 mm each, in parallel)", (0, -22.0 + bh / 2, bt / 2),
          (bw, bh, bt), "#e0b030", ["-z"], "cover")
-    part("charger", "TP4056 mini charger (on the cells)", (0, -14.0, bt + CHARGER[2] / 2), CHARGER, "#2f6fb0",
-         ["-z"], "battery")
     usb = (USB_OLD[0], USB_OLD[1])                 # the zip's own slot
+    # charger: standing across the feet end next to the ESP32-C3, its own USB-C through the
+    # back cover (charge from outside)
+    cw_, cl_, ct_ = CHARGER[1], CHARGER[0], CHARGER[2]
+    part("charger", "TP4056 USB-C charger (standing, its USB-C through the back cover)", (-5.0, 22.0, cl_ / 2),
+         (cw_, ct_, cl_), "#2f6fb0", ["-z"], "cover")
+    chg_usb = (-5.0, 22.0 + ct_ / 2 - 2.6, "x")       # socket centre; its long side along x
     part("esp32", "ESP32-C3 Super Mini (USB-C in the back cover slot)",
          (usb[0], usb[1] - 2.6 + ESP32[1] / 2, ESP32[2] / 2), ESP32, "#2a2a30", ["-z"], "cover")
     if switch:
@@ -356,6 +362,14 @@ def build(src, size, battery=BATTERY, switch=True):
     if switch:
         ps = P["switch"]
         cover_m = cover_m - box_c((ps["c"][0], ps["c"][1], -2.0), (2.4, 5.4, 6.0))
+    # USB-C ports: a slot for the socket and, outside, a deep recess for the plug head, so a big
+    # plug seats fully (only PORT_WALL of plastic between the plug head and the socket)
+    for ux, uy, along in ((usb[0], usb[1], "x"), chg_usb):
+        sl = (9.4, 3.8) if along == "x" else (3.8, 9.4)
+        rc = PLUG_HEAD if along == "x" else (PLUG_HEAD[1], PLUG_HEAD[0])
+        cover_m = cover_m - box_c((ux, uy, -2.0), (sl[0], sl[1], 12.0))
+        cover_m = cover_m - box(ux - rc[0] / 2, ux + rc[0] / 2, uy - rc[1] / 2, uy + rc[1] / 2, -30, -PORT_WALL)
+    ports = [(usb[0], usb[1], "x"), chg_usb]
     # (the battery is held by double-sided tape: the cover's inside stays flat for printing)
 
     # ---- bezel: the zip's for 0.96"; for 1.3" a bigger window and a seat for the glass
@@ -372,7 +386,7 @@ def build(src, size, battery=BATTERY, switch=True):
         base_m = base_m - M.cylinder(20, 1.7, 1.7, 24).translate([0, by, -5])
         base_m = base_m - M.cylinder(1.9, 3.0, 1.1, 32).translate([0, by, -0.01])  # 90 deg countersink, M3 head
     return dict(body=body_m, cover=cover_m, bezel=bezel_m, chassis=chassis, base=base_m, parts=parts, size=size,
-                z_plate=(z_plate0, z_plate1), S=S)
+                z_plate=(z_plate0, z_plate1), S=S, ports=ports)
 
 
 def fit_check(r):

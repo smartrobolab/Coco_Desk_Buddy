@@ -19,6 +19,7 @@ A 48 mm battery cannot fit in the yeti at its original size with 1 mm of space r
 | Weight, finished | ~107 g |
 | Stability | on its own feet it tips only past ~16 deg; screwed to the base past ~49 deg |
 | Clearance | 1 mm on every free side of every part, both screen sizes (checked) |
+| Charging | TP4056's own USB-C on the back; a 15 x 9 mm plug head seats fully (checked) |
 
 ## Files
 
@@ -55,7 +56,9 @@ the legs, so yeti and base are one piece. Printed with 100 % infill the base add
 
 Same as the [yeti wiring](../yeti/README.md#wiring), and:
 - the vibration module is a 5 V motor: its VCC goes to the battery **after the switch** (3.7-4.2 V), IN to GPIO10;
-- one USB-C (the ESP32-C3's) programs and charges: the ESP32's 5V pin feeds the TP4056 IN+.
+- **two USB-C ports on the back**: the TP4056 charger's own port (charge the battery from outside) and the
+  ESP32-C3's (program it). The ESP32's 5V pin is left unconnected. Both ports have a deep 15 x 9 mm recess so big or
+  coated plug heads go fully in (only 0.6 mm of plastic between the plug head and the socket).
 
 ## Regenerating
 

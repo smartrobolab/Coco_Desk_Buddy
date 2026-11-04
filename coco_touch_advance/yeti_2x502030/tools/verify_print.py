@@ -93,7 +93,34 @@ def main():
         ok_all &= air and base_hole and fill > 0.97
 
     say("")
-    say("4. Stability (1.3\" version; PLA, parts as weighed typically)")
+    say("4. USB-C ports (big plug: head 15 x 9 mm, metal 6.65 mm), pushed fully into each socket")
+    world_base_in_body = None
+    plugs = []
+    names = ["ESP32-C3 (program)", "TP4056 (charge)"]
+    for (ux, uy, along), nm in zip(r["ports"], names):
+        hx, hy = (Y.PLUG_HEAD if along == "x" else (Y.PLUG_HEAD[1], Y.PLUG_HEAD[0]))
+        mx, my = ((8.4, 2.6) if along == "x" else (2.6, 8.4))
+        head = Y.box(ux - hx / 2, ux + hx / 2, uy - hy / 2, uy + hy / 2, -Y.PORT_WALL - 25.0, -Y.PORT_WALL)
+        metal = Y.box(ux - mx / 2, ux + mx / 2, uy - my / 2, uy + my / 2, -Y.PORT_WALL, -0.02)
+        plug = head + metal
+        hit = (plug ^ (r["cover"] + r["body"])).volume()
+        hit_base = ((plug.transform(TW)) ^ base).volume()
+        depth = 6.65 - Y.PORT_WALL
+        part = [p for p in r["parts"] if p["name"] == ("esp32" if "ESP32" in nm else "charger")][0]
+        lo = [part["c"][i] - part["s"][i] / 2 for i in range(3)]
+        hi = [part["c"][i] + part["s"][i] / 2 for i in range(3)]
+        aligned = lo[0] <= ux <= hi[0] and lo[1] <= uy <= hi[1] and abs(lo[2]) < 0.05
+        good = hit < 0.01 and hit_base < 0.01 and aligned
+        ok_all &= good
+        plugs.append(head)
+        say(f"   {nm:20s} socket at x {ux:6.1f}, y {uy:6.1f}: plug head {'clear' if hit < 0.01 else 'HITS the cover/body'}"
+            f"{'' if hit_base < 0.01 else ', HITS the base'}, metal goes {depth:.2f} mm into the socket, "
+            f"socket {'behind the slot' if aligned else 'NOT behind the slot'}")
+    both = (plugs[0] ^ plugs[1]).volume() < 0.01
+    say(f"   both cables at once: {'yes' if both else 'no, one at a time (the plug heads would touch)'}")
+
+    say("")
+    say("5. Stability (1.3\" version; PLA, parts as weighed typically)")
     pieces = []
     for key in ("body", "bezel", "cover", "chassis"):
         m = r[key].transform(TW)

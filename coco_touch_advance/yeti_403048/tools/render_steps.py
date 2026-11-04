@@ -186,10 +186,11 @@ VERSIONS = {
     "yeti_403048": dict(
         name="Coco Yeti, 403048 battery (scaled 1.12x)",
         battery="LiPo 403048 (4.0 x 30 x 48 mm)",
-        battery_step="Lay the back cover inside up. Stick the 403048 LiPo flat on it with double-sided tape, the "
-                     "TP4056 charger on top of the battery, and the slide switch in the strip right of the battery "
-                     "with its knob through the slot. Solder: battery + / - to TP4056 B+ / B-, OUT+ to the switch, "
-                     "switch to the LDO input.",
+        battery_step="Lay the back cover inside up. Stick the 403048 LiPo flat on it with double-sided tape. The "
+                     "TP4056 charger stands on its long edge right of the battery, near the head end: USB-C end down "
+                     "in its own slot in the back cover, so you charge from outside; a drop of glue. The slide switch "
+                     "goes in the same strip, knob through its slot. Solder: battery + / - to TP4056 B+ / B-, OUT+ "
+                     "to the switch, switch to the LDO input.",
         esp_step="The ESP32-C3 stands on its long edge against the left side of the back: USB-C end down into the "
                  "back cover's slot (on the left), the other end in the chassis cup.",
         files="coco_yeti_c3_13-merged.bin (1.3\") or coco_yeti_c3_096 (0.96\")"),
@@ -197,8 +198,10 @@ VERSIONS = {
         name="Coco Yeti, 2 x 502030 battery (original size)",
         battery="2 x LiPo 502030 (5 x 20 x 30 mm, with protection boards)",
         battery_step="Charge both cells to the same voltage (within 0.05 V) first, then wire them in parallel: + to +, "
-                     "- to -. Tape them on top of each other, 30 mm side across, on the head end of the back cover; "
-                     "the TP4056 charger on top; the slide switch next to the USB-C slot, knob through its slot. "
+                     "- to -. Tape them on top of each other, 30 mm side across, on the head end of the back cover. "
+                     "The TP4056 charger stands across the feet end: USB-C end down in its own slot in the back "
+                     "cover, so you charge from outside; a drop of glue. The slide switch goes next to the ESP32's "
+                     "slot, knob through its slot. "
                      "Solder: cells + / - to TP4056 B+ / B-, OUT+ to the switch, switch to the LDO input.",
         esp_step="The ESP32-C3 stands at the feet end of the back: USB-C end down into the back cover's slot (the "
                  "original one), the other end in the chassis cup.",
@@ -215,8 +218,10 @@ def main():
     S = Y.S
     back_view = (200, 32)
     wires = ("Solder all wires now (see the wiring diagram): OLED and MPU6050 SDA/SCL to GPIO4/GPIO5, touch to GPIO0, "
-             "MPU6050 INT to GPIO3, vibration IN to GPIO10, battery sense (1 M / 330 k) to GPIO1, ESP32 5V to "
-             "TP4056 IN+, LDO 3.3 V to 3V3 and to the VCC of the OLED, MPU6050 and touch. The vibration module's "
+             "MPU6050 INT to GPIO3, vibration IN to GPIO10, battery sense (1 M / 330 k) to GPIO1, LDO 3.3 V to "
+             "3V3 and to the VCC of the OLED, MPU6050 and touch. Leave the ESP32's 5V pin unconnected (the charger "
+             "has its own USB-C)." + " "
+             " The vibration module's "
              "VCC goes to the battery AFTER the switch (it is a 5 V motor).")
     steps = [
         ("Print and get the parts ready",
@@ -268,7 +273,8 @@ def main():
          {"body", "bezel", "cover"}, {"base"}, (0, 0, 0), (-28, 14),
          dict(base=True, eyes=True, scale=5.2 / S, center=np.array([0.0, 32.0 * S]))),
         ("Flash and set up",
-         "Switch on and plug USB-C into the back. Flash " + V["files"] + " from coco_touch_advance/yeti/firmware/"
+         "Charge: plug a USB-C cable into the charger's port on the back (the TP4056's red LED lights while "
+         "charging, blue when full). Program: switch on and plug USB-C into the ESP32-C3's port. Flash " + V["files"] + " from coco_touch_advance/yeti/firmware/"
          "release at 0x0. Set up Wi-Fi from your phone (QR code), then Menu > Settings > Motion setup: stand the "
          "yeti upright and tap its head, lay it on its back and tap again. Done.",
          {"body", "bezel", "cover"}, set(), (0, 0, 0), (152, 16),

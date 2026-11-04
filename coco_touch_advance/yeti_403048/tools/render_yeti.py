@@ -453,13 +453,12 @@ def wiring():
     esp = block(690, 250, 300, 560, "ESP32-C3 Super Mini", (40, 44, 52),
                 ["GPIO4 (SDA)", "GPIO5 (SCL)", "GPIO0 (touch)", "GPIO3 (INT)", "GPIO10 (vibe)", "GPIO1 (battery)",
                  "3V3", "GND"], side="left")
-    d.text((1000, 236), "5V", font=f, fill=INK)
-    d.ellipse([990 - 6, 262 - 6 + 10, 990 + 6, 262 + 6 + 10], fill=(255, 255, 255), outline=INK, width=2)
+
     oled = block(120, 120, 300, 200, "OLED 0.96\" / 1.3\"", (58, 111, 216), ["SDA", "SCL", "VCC", "GND"], "right")
     imu = block(120, 360, 300, 230, "MPU6050 GY-521", (112, 64, 176), ["SDA", "SCL", "INT", "VCC", "GND"], "right")
     tch = block(120, 630, 300, 170, "TTP223 touch", (208, 48, 48), ["I/O", "VCC", "GND"], "right")
     vib = block(120, 840, 300, 170, "vibration module 5 V", (48, 160, 96), ["IN", "VCC", "GND"], "right")
-    pw = block(1180, 250, 380, 450, "power", (176, 140, 40), ["TP4056 IN+ (from 5V)", "TP4056 B+ / B- (LiPo)",
+    pw = block(1180, 250, 380, 450, "power", (176, 140, 40), ["TP4056 USB-C (charge)", "TP4056 B+ / B- (LiPo)",
                                                               "TP4056 OUT+", "switch", "LDO 3.3 V in", "LDO 3.3 V out",
                                                               "1M / 330k"], "left")
     colors = {"sda": (40, 120, 220), "scl": (230, 150, 30), "v": (220, 50, 50), "g": (30, 30, 30),
@@ -487,8 +486,8 @@ def wiring():
     wire(pw["LDO 3.3 V out"], (990, esp["3V3"][1]), colors["v"], 1090)
     wire(pw["1M / 330k"], (990, esp["GPIO1 (battery)"][1]), colors["sig"], 1120)
     d.line([(990, esp["GND"][1]), (1060, esp["GND"][1])], fill=colors["g"], width=4)
-    wire((990, 272), pw["TP4056 IN+ (from 5V)"], (220, 120, 40), 1120)
-    notes = ["One USB-C (the ESP32-C3's) programs and charges: its 5V pin feeds the TP4056 IN+ (IN- to GND).",
+    notes = ["Two USB-C ports on the back: the TP4056's charges the battery, the ESP32-C3's programs it. "
+             "Leave the ESP32's 5V pin unconnected.",
              "LiPo -> TP4056 B+ / B-. OUT+ -> switch -> LDO ME6211 (1 uF in and out) -> 3V3.",
              "Battery sense: after the switch -> 1 M -> GPIO1 -> 330 k -> GND, 100 nF across the 330 k.",
              "GND: all modules, the TP4056 OUT- and the LDO together."]

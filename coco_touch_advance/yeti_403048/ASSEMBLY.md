@@ -44,13 +44,13 @@ Slide the chassis in from the back until its plate rests on the back of the scre
 
 ![Step 7](images/assembly/step_07.png)
 
-Lay the back cover inside up. Stick the 403048 LiPo flat on it with double-sided tape, the TP4056 charger on top of the battery, and the slide switch in the strip right of the battery with its knob through the slot. Solder: battery + / - to TP4056 B+ / B-, OUT+ to the switch, switch to the LDO input.
+Lay the back cover inside up. Stick the 403048 LiPo flat on it with double-sided tape. The TP4056 charger stands on its long edge right of the battery, near the head end: USB-C end down in its own slot in the back cover, so you charge from outside; a drop of glue. The slide switch goes in the same strip, knob through its slot. Solder: battery + / - to TP4056 B+ / B-, OUT+ to the switch, switch to the LDO input.
 
 ## Step 8. ESP32-C3 and wiring
 
 ![Step 8](images/assembly/step_08.png)
 
-The ESP32-C3 stands on its long edge against the left side of the back: USB-C end down into the back cover's slot (on the left), the other end in the chassis cup. Solder all wires now (see the wiring diagram): OLED and MPU6050 SDA/SCL to GPIO4/GPIO5, touch to GPIO0, MPU6050 INT to GPIO3, vibration IN to GPIO10, battery sense (1 M / 330 k) to GPIO1, ESP32 5V to TP4056 IN+, LDO 3.3 V to 3V3 and to the VCC of the OLED, MPU6050 and touch. The vibration module's VCC goes to the battery AFTER the switch (it is a 5 V motor).
+The ESP32-C3 stands on its long edge against the left side of the back: USB-C end down into the back cover's slot (on the left), the other end in the chassis cup. Solder all wires now (see the wiring diagram): OLED and MPU6050 SDA/SCL to GPIO4/GPIO5, touch to GPIO0, MPU6050 INT to GPIO3, vibration IN to GPIO10, battery sense (1 M / 330 k) to GPIO1, LDO 3.3 V to 3V3 and to the VCC of the OLED, MPU6050 and touch. Leave the ESP32's 5V pin unconnected (the charger has its own USB-C).  The vibration module's VCC goes to the battery AFTER the switch (it is a 5 V motor).
 
 ## Step 9. Close the back
 
@@ -68,7 +68,7 @@ Stand the yeti on the base, each foot over a countersunk hole. From underneath, 
 
 ![Step 11](images/assembly/step_11.png)
 
-Switch on and plug USB-C into the back. Flash coco_yeti_c3_13-merged.bin (1.3") or coco_yeti_c3_096 (0.96") from coco_touch_advance/yeti/firmware/release at 0x0. Set up Wi-Fi from your phone (QR code), then Menu > Settings > Motion setup: stand the yeti upright and tap its head, lay it on its back and tap again. Done.
+Charge: plug a USB-C cable into the charger's port on the back (the TP4056's red LED lights while charging, blue when full). Program: switch on and plug USB-C into the ESP32-C3's port. Flash coco_yeti_c3_13-merged.bin (1.3") or coco_yeti_c3_096 (0.96") from coco_touch_advance/yeti/firmware/release at 0x0. Set up Wi-Fi from your phone (QR code), then Menu > Settings > Motion setup: stand the yeti upright and tap its head, lay it on its back and tap again. Done.
 
 ## Legs and base
 

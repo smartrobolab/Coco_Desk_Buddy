@@ -79,4 +79,7 @@ Electronics: see [README.md](README.md) and [ASSEMBLY.md](ASSEMBLY.md).
    sand the bezel's sides lightly; if loose, a drop of glue.
 3. Try the two M2 screws in the back cover bosses and the two M3 screws in the soles once before assembly, so they
    cut their thread.
-4. Then follow [ASSEMBLY.md](ASSEMBLY.md).
+4. Look at the two USB-C openings in the back cover: each has a deep 15 x 9 mm recess for the plug head and a thin
+   0.6 mm wall round the socket slot. Clean any support or stringing out of them, so the plug head can go all the
+   way in. The TP4056 charger's port is the one for charging; the ESP32-C3's port is for programming.
+5. Then follow [ASSEMBLY.md](ASSEMBLY.md).
