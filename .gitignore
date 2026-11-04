@@ -7,3 +7,5 @@ coco_touch/firmware/coco_touch/coco_secrets.h
 coco_touch/firmware/private/
 coco_touch_advance/firmware/coco_touch_advance/coco_secrets.h
 coco_touch_advance/firmware/private/
+coco_touch_advance/yeti/firmware/coco_yeti/coco_secrets.h
+coco_touch_advance/yeti/firmware/private/

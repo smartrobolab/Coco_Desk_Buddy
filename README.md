@@ -34,6 +34,8 @@ Flash the file at **0x0** (esptool-js in Chrome, or `python3 -m esptool --chip e
 
 **Coco Touch Advance** runs on the Coco Touch hardware and adds 50 faces, coding / Hindi / Marathi jokes, slap reactions, feeding, a pet with food / fun / energy, 4 mini games (Dino Run, Sky Hop, Stacker, Reflex) and a settings menu (brightness, mood, nap timer, Wi-Fi on/off, ...): see [coco_touch_advance/](coco_touch_advance/README.md).
 
+**Coco Yeti** puts Coco Touch Advance in a yeti case with an MPU6050 motion sensor and a vibration motor (drop, shake, slap, spin and tilt reactions): see [coco_touch_advance/yeti/](coco_touch_advance/yeti/README.md).
+
 Coco Voice on the 8 MB XIAO ESP32S3 ("Hey Coco"): [coco_voice_s3-merged.bin](coco_voice_s3/firmware/release/coco_voice_s3-merged.bin). Battery sense: 1 MΩ + 330 kΩ on the C3 boards, 330 kΩ + 330 kΩ on the S3 boards.
 
 All versions share: the small **TTP223** touch pad as Coco's head, a **TP4056** charger, a slide switch, and a **3.3 V LDO** (ME6211 / RT9080) powering the board's 3V3 pin. Wi-Fi is set up **from your phone**: Coco shows a QR code, you pick your network and type the password and city. No code changes needed.
@@ -56,6 +58,7 @@ Coco_Desk_Buddy/
 ├── coco_touch_advance/       same hardware as Coco Touch: 50 faces, games, settings menu
 │   ├── firmware/coco_touch_advance/   Arduino sketch, build.sh, release/
 │   ├── images/                face and screen sheets
+│   ├── yeti/                  Coco Yeti: motion sensor + vibration firmware, case tools
 │   └── README.md
 ├── coco_voice_c3/
 │   ├── firmware/              XiaoZhi board coco/c3, shared/, build.sh, flash.sh

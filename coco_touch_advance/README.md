@@ -6,6 +6,8 @@ Coco Touch with a lot more personality: **50 animated faces**, **jokes** (coding
 
 ![Coco Touch Advance faces](images/coco_touch_advance_faces.png)
 
+**Coco Yeti:** the same firmware plus a motion sensor (MPU6050) and a vibration motor, in a yeti case. Coco reacts to being dropped, shaken, slapped, spun and turned over. See [yeti/](yeti/README.md).
+
 ## Flash it
 
 Pick the file for your board and screen from [firmware/release/](firmware/release) and flash it at **0x0** (same steps as [Coco Touch](../coco_touch/README.md#ready-made-binaries-no-arduino-needed)):
