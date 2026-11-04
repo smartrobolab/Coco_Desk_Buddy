@@ -40,6 +40,74 @@ def material(name, color, rough, sss=0.0):
     return m
 
 
+def look_material(name, look):
+    """Filament looks: 'marble' (off-white with grey/black speckles), 'rainbow' (colour bands
+    that change with the print height), 'silk_blue' (shiny blue silk PLA)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    b = nt.nodes["Principled BSDF"]
+    solid = {"beige": ((0.72, 0.60, 0.42), 0.5), "blue": ((0.02, 0.10, 0.62), 0.45),
+             "pla_white": ((0.80, 0.81, 0.83), 0.5)}
+    if look in solid:  # plain PLA colours
+        b.inputs["Base Color"].default_value = (*solid[look][0], 1)
+        b.inputs["Roughness"].default_value = solid[look][1]
+        return m
+    if look == "silk_blue":
+        b.inputs["Base Color"].default_value = (0.02, 0.12, 0.75, 1)
+        b.inputs["Metallic"].default_value = 0.45
+        b.inputs["Roughness"].default_value = 0.22
+        return m
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    if look == "marble":
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 700.0        # flecks of ~1-2 mm (scene in metres)
+        noise.inputs["Detail"].default_value = 6.0
+        noise.inputs["Roughness"].default_value = 0.75
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        cr = ramp.color_ramp
+        cr.interpolation = "CONSTANT"
+        cr.elements[0].position, cr.elements[0].color = 0.0, (0.03, 0.03, 0.035, 1)   # black flecks
+        cr.elements[1].position, cr.elements[1].color = 0.40, (0.78, 0.77, 0.74, 1)   # off-white
+        e = cr.elements.new(0.36)
+        e.color = (0.30, 0.30, 0.31, 1)                                                # grey flecks
+        e = cr.elements.new(0.66)
+        e.color = (0.55, 0.55, 0.55, 1)                                                # light grey veins
+        e = cr.elements.new(0.69)
+        e.color = (0.78, 0.77, 0.74, 1)
+        geo_m = nt.nodes.new("ShaderNodeNewGeometry")
+        nt.links.new(geo_m.outputs["Position"], noise.inputs["Vector"])  # world position, in metres
+        nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+        b.inputs["Roughness"].default_value = 0.6
+    else:  # rainbow: the colour follows the height (the filament changes colour along its length)
+        sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+        mul = nt.nodes.new("ShaderNodeMath")
+        mul.operation = "MULTIPLY"
+        frac = nt.nodes.new("ShaderNodeMath")
+        frac.operation = "FRACT"
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        cr = ramp.color_ramp
+        cols = [(0.0, (0.80, 0.02, 0.02)), (0.18, (0.90, 0.30, 0.0)), (0.34, (0.85, 0.75, 0.0)),
+                (0.5, (0.03, 0.55, 0.08)), (0.66, (0.0, 0.18, 0.80)), (0.83, (0.35, 0.03, 0.60)),
+                (1.0, (0.80, 0.02, 0.02))]
+        cr.elements[0].position, cr.elements[0].color = cols[0][0], (*cols[0][1], 1)
+        cr.elements[1].position, cr.elements[1].color = cols[-1][0], (*cols[-1][1], 1)
+        for pos, c in cols[1:-1]:
+            e = cr.elements.new(pos)
+            e.color = (*c, 1)
+        geo = nt.nodes.new("ShaderNodeNewGeometry")
+        nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])     # world height: same for every part
+        nt.links.new(sep.outputs["Z"], mul.inputs[0])
+        nt.links.new(mul.outputs["Value"], frac.inputs[0])
+        nt.links.new(frac.outputs["Value"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+        b.inputs["Roughness"].default_value = 0.35
+        b.inputs["Coat Weight"].default_value = 0.3        # a little shine
+        mul.inputs[1].default_value = 25.0                 # one full colour cycle per ~40 mm of height
+    return m
+
+
 def image_material(name, path, emit=0.0):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
@@ -72,7 +140,10 @@ for o in spec["objects"]:
     bpy.ops.wm.stl_import(filepath=o["path"], global_scale=MM)
     obj = bpy.context.selected_objects[0]
     obj.name = o["name"]
-    obj.data.materials.append(material(o["name"], o["color"], o["rough"], sss=0.15 if o["color"][0] > 0.8 else 0))
+    if o.get("look"):
+        obj.data.materials.append(look_material(o["name"], o["look"]))
+    else:
+        obj.data.materials.append(material(o["name"], o["color"], o["rough"], sss=0.15 if o["color"][0] > 0.8 else 0))
     smooth(obj)
 
 # ---- screens: black glass with Coco's face glowing on the active area
