@@ -78,6 +78,8 @@ Power: LiPo -> TP4056 B+/B-, OUT+ -> switch -> ME6211 LDO -> 3V3. There is only 
 
 ## Assembly
 
+**Full part-by-part guide with a picture for every step: [ASSEMBLY.md](ASSEMBLY.md).** What the holes in the legs and the square recess in the floor are: [images/coco_yeti_bottom.png](images/coco_yeti_bottom.png).
+
 ![Assembly](images/coco_yeti_assembly.png)
 
 1. **Touch sensor**: into the slot inside the head, pad up, a drop of glue.

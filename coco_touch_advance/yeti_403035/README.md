@@ -66,6 +66,8 @@ Firmware: the [yeti firmware](../yeti/README.md#firmware) as it is (`coco_yeti_c
 
 ## Assembly
 
+**Full part-by-part guide with a picture for every step: [ASSEMBLY.md](ASSEMBLY.md).** What the holes in the legs and the square recess in the floor are: [images/coco_yeti_bottom.png](images/coco_yeti_bottom.png).
+
 ![Assembly](images/coco_yeti_assembly.png)
 
 ## Regenerating
