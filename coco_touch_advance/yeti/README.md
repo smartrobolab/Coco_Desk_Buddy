@@ -4,6 +4,8 @@ Coco Touch Advance inside the yeti from `yeti_v1.2_stls.zip`, now with a **motio
 
 ![Coco Yeti](images/coco_yeti_render.png)
 
+For a thinner, longer 4.0 x 30 x 35 mm battery (403035) and the black 21 x 23 mm vibration module, see [../yeti_403035](../yeti_403035/README.md).
+
 The outside of the yeti is the design from the zip, unchanged (same front, side and top silhouette, checked by the script). Only the inside was reworked so the parts fit with **1 mm of free space on every side**.
 
 | Part | From | What changed |
